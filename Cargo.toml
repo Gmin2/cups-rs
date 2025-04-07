@@ -1,0 +1,31 @@
+[package]
+name = "cups_rs"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Rust bindings for CUPS (Common UNIX Printing System)"
+repository = "https://github.com/Gmin2/cups-rs"
+
+[dependencies]
+libc = "0.2.171"
+thiserror = "1.0.40"
+
+[build-dependencies]
+bindgen = "0.71.1"
+pkg-config = "0.3.32"
+
+[[example]]
+name = "list_printers"
+path = "examples/list_printers.rs"
+
+[[example]]
+name = "printer_options"
+path = "examples/printer_options.rs"
+
+[[example]]
+name = "media_sizes"
+path = "examples/media_sizes.rs"
+
+[[example]]
+name = "enum_destinations"
+path = "examples/enum_destinations.rs"
