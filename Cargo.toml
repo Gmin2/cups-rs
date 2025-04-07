@@ -5,6 +5,8 @@ edition = "2024"
 license = "MIT"
 description = "Rust bindings for CUPS (Common UNIX Printing System)"
 repository = "https://github.com/Gmin2/cups-rs"
+documentation = "https://docs.rs/cups-rs"
+readme = "README.md"
 
 [dependencies]
 libc = "0.2.171"
