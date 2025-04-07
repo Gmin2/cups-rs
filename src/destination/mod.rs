@@ -311,6 +311,68 @@ impl Destination {
             Err(_) => false,
         }
     }
+
+    /// Get a pointer to a raw cups_dest_s for this destination
+    pub fn as_ptr(&self) -> *mut bindings::cups_dest_s {
+        // Create a raw cups_dest_t for this destination
+        let name_c = match CString::new(self.name.as_str()) {
+            Ok(s) => s,
+            Err(_) => return ptr::null_mut(),
+        };
+
+        let instance_c = match &self.instance {
+            Some(instance) => match CString::new(instance.as_str()) {
+                Ok(s) => Some(s),
+                Err(_) => return ptr::null_mut(),
+            },
+            None => None,
+        };
+
+        let _instance_ptr = match &instance_c {
+            Some(s) => s.as_ptr(),
+            None => ptr::null(),
+        };
+
+        let mut num_options = 0;
+        let mut options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
+
+        // Add all options
+        for (name, value) in &self.options {
+            let name_c = match CString::new(name.as_str()) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+
+            let value_c = match CString::new(value.as_str()) {
+                Ok(s) => s,
+                Err(_) => continue,
+            };
+
+            unsafe {
+                num_options = bindings::cupsAddOption(
+                    name_c.as_ptr(),
+                    value_c.as_ptr(),
+                    num_options,
+                    &mut options_ptr,
+                );
+            }
+        }
+
+        // Create the raw cups_dest_s struct
+        let dest = Box::new(bindings::cups_dest_s {
+            name: name_c.into_raw(),
+            instance: match instance_c {
+                Some(s) => s.into_raw(),
+                None => ptr::null_mut(),
+            },
+            is_default: if self.is_default { 1 } else { 0 },
+            num_options,
+            options: options_ptr,
+        });
+
+        // Leak the box to keep the memory alive
+        Box::into_raw(dest)
+    }
 }
 
 /// A collection of CUPS destinations with automatic cleanup
