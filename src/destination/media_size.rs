@@ -125,3 +125,34 @@ impl MediaSize {
         self.printable_length() as f64 / 2540.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_media_size_conversions() {
+        let media = MediaSize {
+            name: "na_letter_8.5x11in".to_string(),
+            width: 21590,
+            length: 27940,
+            bottom: 635,
+            left: 635,
+            right: 635,
+            top: 635,
+        };
+
+        // Test inch conversions
+        assert!((media.width_inches() - 8.5).abs() < 0.01);
+        assert!((media.length_inches() - 11.0).abs() < 0.01);
+        assert!((media.bottom_margin_inches() - 0.25).abs() < 0.01);
+
+        // Test millimeter conversions
+        assert!((media.width_mm() - 215.9).abs() < 0.1);
+        assert!((media.length_mm() - 279.4).abs() < 0.1);
+
+        // Test printable area
+        assert_eq!(media.printable_width(), 21590 - 635 - 635);
+        assert_eq!(media.printable_length(), 27940 - 635 - 635);
+    }
+}

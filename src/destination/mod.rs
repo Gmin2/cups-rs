@@ -638,3 +638,86 @@ pub fn find_destinations(type_filter: u32, mask: u32) -> Result<Vec<Destination>
 
     Ok(destinations)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::constants::*;
+
+    #[test]
+    fn test_destination_creation() {
+        let mut options = std::collections::HashMap::new();
+        options.insert("printer-state".to_string(), "3".to_string());
+        options.insert("printer-info".to_string(), "Test Printer".to_string());
+        options.insert("printer-is-accepting-jobs".to_string(), "true".to_string());
+
+        let dest = Destination {
+            name: "TestPrinter".to_string(),
+            instance: None,
+            is_default: false,
+            options,
+        };
+
+        assert_eq!(dest.name, "TestPrinter");
+        assert_eq!(dest.full_name(), "TestPrinter");
+        assert_eq!(dest.state(), PrinterState::Idle);
+        assert!(dest.is_accepting_jobs());
+        assert_eq!(dest.info(), Some(&"Test Printer".to_string()));
+    }
+
+    #[test]
+    fn test_destination_with_instance() {
+        let dest = Destination {
+            name: "TestPrinter".to_string(),
+            instance: Some("instance1".to_string()),
+            is_default: true,
+            options: std::collections::HashMap::new(),
+        };
+
+        assert_eq!(dest.full_name(), "TestPrinter/instance1");
+        assert!(dest.is_default);
+    }
+
+    #[test]
+    fn test_destination_state_parsing() {
+        let mut options = std::collections::HashMap::new();
+        
+        // Test different printer states
+        options.insert("printer-state".to_string(), "4".to_string());
+        let dest = Destination {
+            name: "Test".to_string(),
+            instance: None,
+            is_default: false,
+            options: options.clone(),
+        };
+        assert_eq!(dest.state(), PrinterState::Processing);
+
+        options.insert("printer-state".to_string(), "5".to_string());
+        let dest = Destination {
+            name: "Test".to_string(),
+            instance: None,
+            is_default: false,
+            options: options.clone(),
+        };
+        assert_eq!(dest.state(), PrinterState::Stopped);
+    }
+
+    #[test]
+    fn test_destination_state_reasons() {
+        let mut options = std::collections::HashMap::new();
+        options.insert("printer-state-reasons".to_string(), 
+                      "media-tray-empty-error,toner-low-warning".to_string());
+        
+        let dest = Destination {
+            name: "Test".to_string(),
+            instance: None,
+            is_default: false,
+            options,
+        };
+
+        let reasons = dest.state_reasons();
+        assert_eq!(reasons.len(), 2);
+        assert!(reasons.contains(&"media-tray-empty-error".to_string()));
+        assert!(reasons.contains(&"toner-low-warning".to_string()));
+    }
+}

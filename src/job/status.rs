@@ -68,3 +68,64 @@ pub struct JobInfo {
     pub processing_time: i64,
     pub completed_time: i64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_job_status_from_cups_state() {
+        assert_eq!(JobStatus::from_cups_state(3), JobStatus::Pending);
+        assert_eq!(JobStatus::from_cups_state(4), JobStatus::Processing);
+        assert_eq!(JobStatus::from_cups_state(5), JobStatus::Completed);
+        assert_eq!(JobStatus::from_cups_state(6), JobStatus::Canceled);
+        assert_eq!(JobStatus::from_cups_state(7), JobStatus::Aborted);
+        assert_eq!(JobStatus::from_cups_state(8), JobStatus::Held);
+        assert_eq!(JobStatus::from_cups_state(9), JobStatus::Stopped);
+        assert_eq!(JobStatus::from_cups_state(999), JobStatus::Unknown);
+    }
+
+    #[test]
+    fn test_job_status_to_cups_value() {
+        assert_eq!(JobStatus::Pending.to_cups_value(), 3);
+        assert_eq!(JobStatus::Processing.to_cups_value(), 4);
+        assert_eq!(JobStatus::Completed.to_cups_value(), 5);
+        assert_eq!(JobStatus::Canceled.to_cups_value(), 6);
+        assert_eq!(JobStatus::Aborted.to_cups_value(), 7);
+        assert_eq!(JobStatus::Held.to_cups_value(), 8);
+        assert_eq!(JobStatus::Stopped.to_cups_value(), 9);
+        assert_eq!(JobStatus::Unknown.to_cups_value(), 0);
+    }
+
+    #[test]
+    fn test_job_status_display() {
+        assert_eq!(JobStatus::Pending.to_string(), "Pending");
+        assert_eq!(JobStatus::Processing.to_string(), "Processing");
+        assert_eq!(JobStatus::Completed.to_string(), "Completed");
+        assert_eq!(JobStatus::Canceled.to_string(), "Canceled");
+        assert_eq!(JobStatus::Aborted.to_string(), "Aborted");
+        assert_eq!(JobStatus::Held.to_string(), "Held");
+        assert_eq!(JobStatus::Stopped.to_string(), "Stopped");
+        assert_eq!(JobStatus::Unknown.to_string(), "Unknown");
+    }
+
+    #[test]
+    fn test_job_info_creation() {
+        let job_info = JobInfo {
+            id: 123,
+            title: "Test Job".to_string(),
+            user: "testuser".to_string(),
+            dest: "TestPrinter".to_string(),
+            status: JobStatus::Processing,
+            size: 1024,
+            priority: 50,
+            creation_time: 1640995200,
+            processing_time: 1640995260,
+            completed_time: 0,
+        };
+
+        assert_eq!(job_info.id, 123);
+        assert_eq!(job_info.title, "Test Job");
+        assert_eq!(job_info.status, JobStatus::Processing);
+    }
+}
