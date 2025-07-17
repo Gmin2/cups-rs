@@ -45,6 +45,10 @@ pub enum Error {
     /// Media size error
     #[error("Media size error: {0}")]
     MediaSizeError(String),
+
+    /// Job creation failed
+    #[error("Job creation failed: {0}")]
+    JobCreationFailed(String),
 }
 
 /// Result type for CUPS operations

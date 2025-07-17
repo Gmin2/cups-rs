@@ -1,6 +1,7 @@
 pub mod bindings;
 pub mod constants;
 pub mod destination;
+pub mod job;
 mod error;
 
 pub use constants::*;
@@ -10,3 +11,4 @@ pub use destination::{
     get_destination, remove_dest,
 };
 pub use error::{Error, Result};
+pub use job::*;
