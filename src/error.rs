@@ -1,73 +1,144 @@
-//! Error types for CUPS operations
-
 use std::ffi::NulError;
 use thiserror::Error;
 
-/// Errors that can occur when interacting with CUPS
 #[derive(Error, Debug)]
 pub enum Error {
-    /// Failed to get destinations from CUPS server
     #[error("Failed to get destinations from CUPS server")]
     DestinationListFailed,
 
-    /// Destination not found
     #[error("Destination '{0}' not found")]
     DestinationNotFound(String),
 
-    /// String conversion error
     #[error("Failed to convert C string: {0}")]
     StringConversionError(#[from] std::str::Utf8Error),
 
-    /// Null pointer encountered
     #[error("Null pointer encountered")]
     NullPointer,
 
-    /// CUPS server error
     #[error("CUPS server error: {0}")]
     ServerError(String),
 
-    /// Invalid name containing null bytes
     #[error("Invalid name containing null bytes: {0}")]
     InvalidName(String),
 
-    /// Enumeration error
     #[error("Enumeration error: {0}")]
     EnumerationError(String),
 
-    /// Detailed information unavailable
     #[error("Detailed destination information unavailable")]
     DetailedInfoUnavailable,
 
-    /// Unsupported feature
     #[error("Unsupported feature: {0}")]
     UnsupportedFeature(String),
 
-    /// Media size error
     #[error("Media size error: {0}")]
     MediaSizeError(String),
 
-    /// Job creation failed
     #[error("Job creation failed: {0}")]
     JobCreationFailed(String),
 
-    // Document submission failed
     #[error("Document submission failed: {0}")]
     DocumentSubmissionFailed(String),
 
-    // IO error
+    #[error("Job management failed: {0}")]
+    JobManagementFailed(String),
+
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
-    // Job management error
-    #[error("Job management failed: {0}")]
-    JobManagementFailed(String),
+    #[error("CUPS server unavailable")]
+    ServerUnavailable,
+
+    #[error("Authentication required for destination '{0}'")]
+    AuthenticationRequired(String),
+
+    #[error("Permission denied for operation on '{0}'")]
+    PermissionDenied(String),
+
+    #[error("Printer '{0}' is offline")]
+    PrinterOffline(String),
+
+    #[error("Printer '{0}' is not accepting jobs: {1}")]
+    PrinterNotAccepting(String, String),
+
+    #[error("Invalid document format '{0}' for destination '{1}'")]
+    InvalidFormat(String, String),
+
+    #[error("Document too large: {0} bytes (max: {1} bytes)")]
+    DocumentTooLarge(usize, usize),
+
+    #[error("Network error: {0}")]
+    NetworkError(String),
+
+    #[error("Configuration error: {0}")]
+    ConfigurationError(String),
+
+    #[error("Timeout waiting for operation to complete")]
+    Timeout,
 }
 
-/// Result type for CUPS operations
 pub type Result<T> = std::result::Result<T, Error>;
 
 impl From<NulError> for Error {
     fn from(error: NulError) -> Self {
         Error::InvalidName(format!("String contains null bytes: {}", error))
     }
+}
+
+impl Error {
+    pub fn is_recoverable(&self) -> bool {
+        match self {
+            Error::ServerUnavailable
+            | Error::NetworkError(_)
+            | Error::Timeout
+            | Error::PrinterOffline(_) => true,
+            
+            Error::AuthenticationRequired(_)
+            | Error::PermissionDenied(_)
+            | Error::PrinterNotAccepting(_, _) => false,
+            
+            Error::DocumentTooLarge(_, _)
+            | Error::InvalidFormat(_, _)
+            | Error::ConfigurationError(_) => false,
+            
+            _ => false,
+        }
+    }
+
+    pub fn error_category(&self) -> ErrorCategory {
+        match self {
+            Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout => ErrorCategory::Network,
+            Error::AuthenticationRequired(_) | Error::PermissionDenied(_) => ErrorCategory::Authentication,
+            Error::PrinterOffline(_) | Error::PrinterNotAccepting(_, _) => ErrorCategory::Printer,
+            Error::InvalidFormat(_, _) | Error::DocumentTooLarge(_, _) => ErrorCategory::Document,
+            Error::JobCreationFailed(_) | Error::JobManagementFailed(_) => ErrorCategory::Job,
+            Error::ConfigurationError(_) => ErrorCategory::Configuration,
+            _ => ErrorCategory::General,
+        }
+    }
+
+    pub fn suggested_action(&self) -> &'static str {
+        match self {
+            Error::ServerUnavailable => "Check if CUPS service is running: sudo systemctl status cups",
+            Error::AuthenticationRequired(_) => "Provide valid credentials for the printer",
+            Error::PrinterOffline(_) => "Check printer connection and power status",
+            Error::PrinterNotAccepting(_, _) => "Enable job acceptance: cupsaccept <printer>",
+            Error::InvalidFormat(_, _) => "Convert document to a supported format (PDF, PostScript, text)",
+            Error::DocumentTooLarge(_, _) => "Reduce document size or split into smaller files",
+            Error::NetworkError(_) => "Check network connectivity to CUPS server",
+            Error::Timeout => "Retry the operation or increase timeout value",
+            Error::ConfigurationError(_) => "Check CUPS configuration files",
+            _ => "Check CUPS logs for more details: sudo tail /var/log/cups/error_log",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ErrorCategory {
+    Network,
+    Authentication,
+    Printer,
+    Document,
+    Job,
+    Configuration,
+    General,
 }

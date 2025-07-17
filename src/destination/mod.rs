@@ -9,6 +9,7 @@ pub use printer_state::PrinterState;
 use crate::bindings;
 use crate::constants;
 use crate::error::{Error, Result};
+use crate::error_helpers::cups_error_to_our_error;
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
@@ -155,7 +156,6 @@ impl Destination {
 
     /// Get detailed information about this destination
     pub fn get_detailed_info(&self, http: *mut bindings::_http_s) -> Result<DestinationInfo> {
-        // Create a raw cups_dest_t for this destination
         let name_c = CString::new(self.name.as_str())?;
         let instance_c = match &self.instance {
             Some(instance) => Some(CString::new(instance.as_str())?),
@@ -170,7 +170,6 @@ impl Destination {
         let mut num_options = 0;
         let mut options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
 
-        // Add all options
         for (name, value) in &self.options {
             let name_c = CString::new(name.as_str())?;
             let value_c = CString::new(value.as_str())?;
@@ -185,7 +184,6 @@ impl Destination {
             }
         }
 
-        // Create destination
         let dest = bindings::cups_dest_s {
             name: name_c.into_raw(),
             instance: match instance_c {
@@ -197,7 +195,6 @@ impl Destination {
             options: options_ptr,
         };
 
-        // Get the destination info
         let dinfo = unsafe {
             bindings::cupsCopyDestInfo(
                 http,
@@ -205,13 +202,11 @@ impl Destination {
             )
         };
 
-        // Free the options
         unsafe {
             if !options_ptr.is_null() {
                 bindings::cupsFreeOptions(num_options, options_ptr);
             }
 
-            // Need to free the raw strings we created
             if !dest.name.is_null() {
                 let _ = CString::from_raw(dest.name);
             }
@@ -219,6 +214,10 @@ impl Destination {
             if !dest.instance.is_null() {
                 let _ = CString::from_raw(dest.instance);
             }
+        }
+
+        if dinfo.is_null() {
+            return Err(cups_error_to_our_error("get destination info", Some(&self.name)));
         }
 
         unsafe { DestinationInfo::from_raw(dinfo) }

@@ -8,6 +8,7 @@ pub use management::{get_jobs, get_active_jobs, get_completed_jobs, get_job_info
 use crate::bindings;
 use crate::destination::Destination;
 use crate::error::{Error, Result};
+use crate::error_helpers::{cups_error_to_our_error, validate_document_format, check_document_size};
 use std::ffi::CString;
 use std::ptr;
 use std::fs::File;
@@ -44,6 +45,14 @@ impl Job {
             ));
         }
 
+        validate_document_format(format, &self.dest_name)?;
+
+        let metadata = path.metadata().map_err(|e| {
+            Error::DocumentSubmissionFailed(format!("Cannot access file metadata: {}", e))
+        })?;
+
+        check_document_size(metadata.len() as usize, None)?;
+
         let mut file = File::open(path).map_err(|e| {
             Error::DocumentSubmissionFailed(format!("Failed to open file: {}", e))
         })?;
@@ -59,7 +68,18 @@ impl Job {
     }
 
     pub fn submit_data(&self, data: &[u8], format: &str, doc_name: &str) -> Result<()> {
+        validate_document_format(format, &self.dest_name)?;
+        check_document_size(data.len(), None)?;
+
         let dest = crate::get_destination(&self.dest_name)?;
+        
+        if !dest.is_accepting_jobs() {
+            return Err(Error::PrinterNotAccepting(
+                self.dest_name.clone(),
+                "Printer is currently not accepting jobs".to_string()
+            ));
+        }
+
         let dest_info = dest.get_detailed_info(ptr::null_mut())?;
         let dest_ptr = dest.as_ptr();
 
@@ -98,9 +118,7 @@ impl Job {
                 }
             }
 
-            return Err(Error::DocumentSubmissionFailed(
-                "Failed to start document".to_string()
-            ));
+            return Err(cups_error_to_our_error("document start", Some(&self.dest_name)));
         }
 
         let mut bytes_written = 0;
@@ -133,7 +151,7 @@ impl Job {
                 }
 
                 return Err(Error::DocumentSubmissionFailed(
-                    format!("Failed to write data at byte {}", bytes_written)
+                    format!("Failed to write data at byte {} (network error or timeout)", bytes_written)
                 ));
             }
 
@@ -165,14 +183,19 @@ impl Job {
         if finish_status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
             Ok(())
         } else {
-            Err(Error::DocumentSubmissionFailed(
-                "Failed to finish document".to_string()
-            ))
+            Err(cups_error_to_our_error("document finish", Some(&self.dest_name)))
         }
     }
 }
 
 pub fn create_job(dest: &Destination, title: &str) -> Result<Job> {
+    if !dest.is_accepting_jobs() {
+        return Err(Error::PrinterNotAccepting(
+            dest.name.clone(),
+            "Printer is not accepting new jobs".to_string()
+        ));
+    }
+
     let title_c = CString::new(title)?;
     let dest_info = dest.get_detailed_info(ptr::null_mut())?;
     let dest_ptr = dest.as_ptr();
@@ -213,20 +236,6 @@ pub fn create_job(dest: &Destination, title: &str) -> Result<Job> {
     if status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
         Ok(Job::new(job_id, dest.name.clone(), title.to_string()))
     } else {
-        let error_msg = unsafe {
-            let error_ptr = bindings::cupsLastErrorString();
-            if error_ptr.is_null() {
-                "Unknown CUPS error".to_string()
-            } else {
-                std::ffi::CStr::from_ptr(error_ptr)
-                    .to_string_lossy()
-                    .into_owned()
-            }
-        };
-        
-        Err(Error::JobCreationFailed(format!(
-            "CUPS job creation failed with status {}: {}",
-            status, error_msg
-        )))
+        Err(cups_error_to_our_error("job creation", Some(&dest.name)))
     }
 }
