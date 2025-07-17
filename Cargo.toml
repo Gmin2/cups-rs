@@ -18,28 +18,16 @@ bindgen = "0.71.1"
 pkg-config = "0.3.32"
 
 [[example]]
-name = "list_printers"
-path = "examples/list_printers.rs"
+name = "discover_printers"
+path = "examples/discover_printers.rs"
 
 [[example]]
-name = "printer_options"
-path = "examples/printer_options.rs"
+name = "complete_workflow" 
+path = "examples/complete_workflow.rs"
 
 [[example]]
-name = "media_sizes"
-path = "examples/media_sizes.rs"
-
-[[example]]
-name = "enum_destinations"
-path = "examples/enum_destinations.rs"
-
-[[example]]
-name = "print_document"
-path = "examples/print_document.rs"
-
-[[example]]
-name = "job_workflow"
-path = "examples/job_workflow.rs"
+name = "printer_capabilities"
+path = "examples/printer_capabilities.rs"
 
 [[example]]
 name = "print_with_options"
