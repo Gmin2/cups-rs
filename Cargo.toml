@@ -36,3 +36,7 @@ path = "examples/enum_destinations.rs"
 [[example]]
 name = "print_document"
 path = "examples/print_document.rs"
+
+[[example]]
+name = "job_workflow"
+path = "examples/job_workflow.rs"

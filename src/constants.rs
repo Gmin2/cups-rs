@@ -96,3 +96,7 @@ pub const PRINT_QUALITY_HIGH: &str = "5";
 pub const SIDES_ONE_SIDED: &str = "one-sided";
 pub const SIDES_TWO_SIDED_PORTRAIT: &str = "two-sided-long-edge";
 pub const SIDES_TWO_SIDED_LANDSCAPE: &str = "two-sided-short-edge";
+
+pub const WHICHJOBS_ALL: i32 = -1;
+pub const WHICHJOBS_ACTIVE: i32 = 0;
+pub const WHICHJOBS_COMPLETED: i32 = 1;

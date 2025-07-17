@@ -57,6 +57,10 @@ pub enum Error {
     // IO error
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
+
+    // Job management error
+    #[error("Job management failed: {0}")]
+    JobManagementFailed(String),
 }
 
 /// Result type for CUPS operations
