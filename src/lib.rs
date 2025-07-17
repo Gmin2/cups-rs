@@ -1,8 +1,8 @@
 pub mod bindings;
 pub mod constants;
 pub mod destination;
-pub mod job;
 mod error;
+pub mod job;
 
 pub use constants::*;
 pub use destination::{

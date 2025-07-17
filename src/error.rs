@@ -49,6 +49,14 @@ pub enum Error {
     /// Job creation failed
     #[error("Job creation failed: {0}")]
     JobCreationFailed(String),
+
+    // Document submission failed
+    #[error("Document submission failed: {0}")]
+    DocumentSubmissionFailed(String),
+
+    // IO error
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
 }
 
 /// Result type for CUPS operations

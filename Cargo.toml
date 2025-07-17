@@ -11,6 +11,7 @@ readme = "README.md"
 [dependencies]
 libc = "0.2.171"
 thiserror = "1.0.40"
+chrono = "0.4.26"
 
 [build-dependencies]
 bindgen = "0.71.1"
@@ -31,3 +32,7 @@ path = "examples/media_sizes.rs"
 [[example]]
 name = "enum_destinations"
 path = "examples/enum_destinations.rs"
+
+[[example]]
+name = "print_document"
+path = "examples/print_document.rs"
