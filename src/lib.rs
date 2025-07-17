@@ -12,4 +12,4 @@ pub use destination::{
     get_destination, remove_dest,
 };
 pub use error::{Error, Result, ErrorCategory};
-pub use job::{*, JobStatus, JobInfo, get_active_jobs, get_completed_jobs};
+pub use job::{*, JobStatus, JobInfo, get_active_jobs, get_completed_jobs, PrintOptions, ColorMode, PrintQuality, DuplexMode, Orientation};

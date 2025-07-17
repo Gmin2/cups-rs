@@ -1,9 +1,11 @@
 mod status;
 mod lifecycle;
 mod management;
+mod options;
 
 pub use status::{JobStatus, JobInfo};
 pub use management::{get_jobs, get_active_jobs, get_completed_jobs, get_job_info, cancel_job};
+pub use options::{PrintOptions, ColorMode, PrintQuality, DuplexMode, Orientation};
 
 use crate::bindings;
 use crate::destination::Destination;
@@ -237,5 +239,79 @@ pub fn create_job(dest: &Destination, title: &str) -> Result<Job> {
         Ok(Job::new(job_id, dest.name.clone(), title.to_string()))
     } else {
         Err(cups_error_to_our_error("job creation", Some(&dest.name)))
+    }
+}
+
+pub fn create_job_with_options(dest: &Destination, title: &str, options: &PrintOptions) -> Result<Job> {
+    if !dest.is_accepting_jobs() {
+        return Err(Error::PrinterNotAccepting(
+            dest.name.clone(),
+            "Printer is not accepting new jobs".to_string()
+        ));
+    }
+
+    let title_c = CString::new(title)?;
+    let dest_info = dest.get_detailed_info(ptr::null_mut())?;
+    let dest_ptr = dest.as_ptr();
+    
+    if dest_ptr.is_null() {
+        return Err(Error::NullPointer);
+    }
+
+    let cups_options = options.as_cups_options();
+    let mut cups_options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
+    let mut num_options = 0;
+
+    for (name, value) in &cups_options {
+        let name_c = CString::new(*name)?;
+        let value_c = CString::new(*value)?;
+
+        unsafe {
+            num_options = bindings::cupsAddOption(
+                name_c.as_ptr(),
+                value_c.as_ptr(),
+                num_options,
+                &mut cups_options_ptr,
+            );
+        }
+    }
+    
+    let mut job_id: i32 = 0;
+    
+    let status = unsafe {
+        bindings::cupsCreateDestJob(
+            ptr::null_mut(),
+            dest_ptr,
+            dest_info.as_ptr(),
+            &mut job_id,
+            title_c.as_ptr(),
+            num_options,
+            cups_options_ptr,
+        )
+    };
+
+    unsafe {
+        if !cups_options_ptr.is_null() {
+            bindings::cupsFreeOptions(num_options, cups_options_ptr);
+        }
+
+        let dest_box = Box::from_raw(dest_ptr);
+        
+        if !dest_box.name.is_null() {
+            let _ = CString::from_raw(dest_box.name);
+        }
+        if !dest_box.instance.is_null() {
+            let _ = CString::from_raw(dest_box.instance);
+        }
+        
+        if !dest_box.options.is_null() {
+            bindings::cupsFreeOptions(dest_box.num_options, dest_box.options);
+        }
+    }
+    
+    if status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
+        Ok(Job::new(job_id, dest.name.clone(), title.to_string()))
+    } else {
+        Err(cups_error_to_our_error("job creation with options", Some(&dest.name)))
     }
 }

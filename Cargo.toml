@@ -40,3 +40,7 @@ path = "examples/print_document.rs"
 [[example]]
 name = "job_workflow"
 path = "examples/job_workflow.rs"
+
+[[example]]
+name = "print_with_options"
+path = "examples/print_with_options.rs"
