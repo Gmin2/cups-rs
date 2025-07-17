@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use crate::constants::*;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct PrintOptions {
@@ -24,12 +24,14 @@ impl PrintOptions {
     }
 
     pub fn color_mode(mut self, mode: ColorMode) -> Self {
-        self.options.insert(PRINT_COLOR_MODE.to_string(), mode.to_string());
+        self.options
+            .insert(PRINT_COLOR_MODE.to_string(), mode.to_string());
         self
     }
 
     pub fn quality(mut self, quality: PrintQuality) -> Self {
-        self.options.insert(PRINT_QUALITY.to_string(), quality.to_string());
+        self.options
+            .insert(PRINT_QUALITY.to_string(), quality.to_string());
         self
     }
 
@@ -39,7 +41,8 @@ impl PrintOptions {
     }
 
     pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.options.insert(ORIENTATION.to_string(), orientation.to_string());
+        self.options
+            .insert(ORIENTATION.to_string(), orientation.to_string());
         self
     }
 
@@ -49,7 +52,8 @@ impl PrintOptions {
     }
 
     pub fn as_cups_options(&self) -> Vec<(&str, &str)> {
-        self.options.iter()
+        self.options
+            .iter()
             .map(|(k, v)| (k.as_str(), v.as_str()))
             .collect()
     }

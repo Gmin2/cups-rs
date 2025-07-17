@@ -91,23 +91,27 @@ impl Error {
             | Error::NetworkError(_)
             | Error::Timeout
             | Error::PrinterOffline(_) => true,
-            
+
             Error::AuthenticationRequired(_)
             | Error::PermissionDenied(_)
             | Error::PrinterNotAccepting(_, _) => false,
-            
+
             Error::DocumentTooLarge(_, _)
             | Error::InvalidFormat(_, _)
             | Error::ConfigurationError(_) => false,
-            
+
             _ => false,
         }
     }
 
     pub fn error_category(&self) -> ErrorCategory {
         match self {
-            Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout => ErrorCategory::Network,
-            Error::AuthenticationRequired(_) | Error::PermissionDenied(_) => ErrorCategory::Authentication,
+            Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout => {
+                ErrorCategory::Network
+            }
+            Error::AuthenticationRequired(_) | Error::PermissionDenied(_) => {
+                ErrorCategory::Authentication
+            }
             Error::PrinterOffline(_) | Error::PrinterNotAccepting(_, _) => ErrorCategory::Printer,
             Error::InvalidFormat(_, _) | Error::DocumentTooLarge(_, _) => ErrorCategory::Document,
             Error::JobCreationFailed(_) | Error::JobManagementFailed(_) => ErrorCategory::Job,
@@ -118,11 +122,15 @@ impl Error {
 
     pub fn suggested_action(&self) -> &'static str {
         match self {
-            Error::ServerUnavailable => "Check if CUPS service is running: sudo systemctl status cups",
+            Error::ServerUnavailable => {
+                "Check if CUPS service is running: sudo systemctl status cups"
+            }
             Error::AuthenticationRequired(_) => "Provide valid credentials for the printer",
             Error::PrinterOffline(_) => "Check printer connection and power status",
             Error::PrinterNotAccepting(_, _) => "Enable job acceptance: cupsaccept <printer>",
-            Error::InvalidFormat(_, _) => "Convert document to a supported format (PDF, PostScript, text)",
+            Error::InvalidFormat(_, _) => {
+                "Convert document to a supported format (PDF, PostScript, text)"
+            }
             Error::DocumentTooLarge(_, _) => "Reduce document size or split into smaller files",
             Error::NetworkError(_) => "Check network connectivity to CUPS server",
             Error::Timeout => "Retry the operation or increase timeout value",

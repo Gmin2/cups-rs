@@ -5,7 +5,7 @@ fn main() -> Result<()> {
     println!("===============================");
 
     let args: Vec<String> = std::env::args().collect();
-    
+
     let file_path = if args.len() > 1 {
         args[1].clone()
     } else {
@@ -20,31 +20,32 @@ fn main() -> Result<()> {
     // Test different option combinations
     let test_cases = vec![
         ("Basic print", PrintOptions::new()),
-        
-        ("Multiple copies", 
-         PrintOptions::new().copies(2)),
-        
-        ("High quality color", 
-         PrintOptions::new()
-             .color_mode(ColorMode::Color)
-             .quality(PrintQuality::High)),
-        
-        ("Duplex on A4", 
-         PrintOptions::new()
-             .duplex(DuplexMode::TwoSidedPortrait)
-             .media(MEDIA_A4)),
-        
-        ("Custom settings", 
-         PrintOptions::new()
-             .copies(3)
-             .color_mode(ColorMode::Monochrome)
-             .quality(PrintQuality::Draft)
-             .orientation(Orientation::Landscape)),
+        ("Multiple copies", PrintOptions::new().copies(2)),
+        (
+            "High quality color",
+            PrintOptions::new()
+                .color_mode(ColorMode::Color)
+                .quality(PrintQuality::High),
+        ),
+        (
+            "Duplex on A4",
+            PrintOptions::new()
+                .duplex(DuplexMode::TwoSidedPortrait)
+                .media(MEDIA_A4),
+        ),
+        (
+            "Custom settings",
+            PrintOptions::new()
+                .copies(3)
+                .color_mode(ColorMode::Monochrome)
+                .quality(PrintQuality::Draft)
+                .orientation(Orientation::Landscape),
+        ),
     ];
 
     for (name, options) in test_cases {
         println!("\n--- {} ---", name);
-        
+
         // Show options being used
         if !options.is_empty() {
             println!("Options:");
@@ -57,7 +58,7 @@ fn main() -> Result<()> {
         match create_job_with_options(&destination, &format!("{} test", name), &options) {
             Ok(job) => {
                 println!("Created job {}", job.id);
-                
+
                 // Submit and start printing
                 if job.submit_file(&file_path, FORMAT_TEXT).is_ok() {
                     job.close().ok();

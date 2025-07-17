@@ -9,17 +9,23 @@ fn main() -> Result<()> {
     println!("Found {} printer(s)", destinations.len());
 
     if destinations.is_empty() {
-        println!("No printers found. Try: sudo lpadmin -p TestPDF -E -v file:///tmp/ -m everywhere");
+        println!(
+            "No printers found. Try: sudo lpadmin -p TestPDF -E -v file:///tmp/ -m everywhere"
+        );
         return Ok(());
     }
 
     println!("\nBasic printer information:");
     for (i, dest) in destinations.iter().enumerate() {
         println!("\nPrinter #{}: {}", i + 1, dest.name);
-        
+
         // Check printer state and job acceptance
-        println!("  State: {} | Accepting jobs: {}", dest.state(), dest.is_accepting_jobs());
-        
+        println!(
+            "  State: {} | Accepting jobs: {}",
+            dest.state(),
+            dest.is_accepting_jobs()
+        );
+
         // Get optional printer attributes
         if let Some(info) = dest.info() {
             println!("  Description: {}", info);
@@ -27,7 +33,7 @@ fn main() -> Result<()> {
         if let Some(location) = dest.location() {
             println!("  Location: {}", location);
         }
-        
+
         // Check for any issues
         let reasons = dest.state_reasons();
         if !reasons.is_empty() {

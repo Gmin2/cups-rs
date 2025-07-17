@@ -217,7 +217,10 @@ impl Destination {
         }
 
         if dinfo.is_null() {
-            return Err(cups_error_to_our_error("get destination info", Some(&self.name)));
+            return Err(cups_error_to_our_error(
+                "get destination info",
+                Some(&self.name),
+            ));
         }
 
         unsafe { DestinationInfo::from_raw(dinfo) }

@@ -5,7 +5,7 @@ fn main() -> Result<()> {
     println!("==============================");
 
     let args: Vec<String> = std::env::args().collect();
-    
+
     if args.len() > 1 && args[1] == "cancel" {
         return handle_cancel_command(&args);
     }
@@ -23,7 +23,8 @@ fn handle_cancel_command(args: &[String]) -> Result<()> {
         return handle_list_command();
     }
 
-    let job_id: i32 = args[2].parse()
+    let job_id: i32 = args[2]
+        .parse()
         .map_err(|_| Error::JobManagementFailed("Invalid job ID".to_string()))?;
 
     // Get job info before canceling
@@ -70,14 +71,22 @@ fn handle_print_workflow(args: &[String]) -> Result<()> {
 
     // Get the target printer
     let destination = get_destination(&printer_name)?;
-    println!("Using printer: {} ({})", destination.full_name(), destination.state());
+    println!(
+        "Using printer: {} ({})",
+        destination.full_name(),
+        destination.state()
+    );
 
     // Step 1: Create a print job
     let job = create_job(&destination, "Workflow test document")?;
     println!("Created job ID: {}", job.id);
 
     // Step 2: Submit document to the job
-    let format = if file_path.ends_with(".pdf") { FORMAT_PDF } else { FORMAT_TEXT };
+    let format = if file_path.ends_with(".pdf") {
+        FORMAT_PDF
+    } else {
+        FORMAT_TEXT
+    };
     job.submit_file(&file_path, format)?;
     println!("Document submitted");
 

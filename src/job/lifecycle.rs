@@ -1,6 +1,6 @@
+use super::Job;
 use crate::bindings;
 use crate::error::{Error, Result};
-use super::Job;
 use std::ffi::CString;
 use std::ptr;
 
@@ -15,12 +15,7 @@ impl Job {
         }
 
         let status = unsafe {
-            bindings::cupsCloseDestJob(
-                ptr::null_mut(),
-                dest_ptr,
-                dest_info.as_ptr(),
-                self.id,
-            )
+            bindings::cupsCloseDestJob(ptr::null_mut(), dest_ptr, dest_info.as_ptr(), self.id)
         };
 
         unsafe {
@@ -64,13 +59,7 @@ impl Job {
             return Err(Error::NullPointer);
         }
 
-        let status = unsafe {
-            bindings::cupsCancelDestJob(
-                ptr::null_mut(),
-                dest_ptr,
-                self.id,
-            )
-        };
+        let status = unsafe { bindings::cupsCancelDestJob(ptr::null_mut(), dest_ptr, self.id) };
 
         unsafe {
             let dest_box = Box::from_raw(dest_ptr);

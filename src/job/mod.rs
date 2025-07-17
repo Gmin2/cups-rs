@@ -1,21 +1,23 @@
-mod status;
 mod lifecycle;
 mod management;
 mod options;
+mod status;
 
-pub use status::{JobStatus, JobInfo};
-pub use management::{get_jobs, get_active_jobs, get_completed_jobs, get_job_info, cancel_job};
-pub use options::{PrintOptions, ColorMode, PrintQuality, DuplexMode, Orientation};
+pub use management::{cancel_job, get_active_jobs, get_completed_jobs, get_job_info, get_jobs};
+pub use options::{ColorMode, DuplexMode, Orientation, PrintOptions, PrintQuality};
+pub use status::{JobInfo, JobStatus};
 
 use crate::bindings;
 use crate::destination::Destination;
 use crate::error::{Error, Result};
-use crate::error_helpers::{cups_error_to_our_error, validate_document_format, check_document_size};
+use crate::error_helpers::{
+    check_document_size, cups_error_to_our_error, validate_document_format,
+};
 use std::ffi::CString;
-use std::ptr;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
+use std::ptr;
 
 pub const FORMAT_PDF: &str = "application/pdf";
 pub const FORMAT_POSTSCRIPT: &str = "application/postscript";
@@ -40,11 +42,12 @@ impl Job {
 
     pub fn submit_file<P: AsRef<Path>>(&self, file_path: P, format: &str) -> Result<()> {
         let path = file_path.as_ref();
-        
+
         if !path.exists() {
-            return Err(Error::DocumentSubmissionFailed(
-                format!("File not found: {}", path.display())
-            ));
+            return Err(Error::DocumentSubmissionFailed(format!(
+                "File not found: {}",
+                path.display()
+            )));
         }
 
         validate_document_format(format, &self.dest_name)?;
@@ -55,18 +58,20 @@ impl Job {
 
         check_document_size(metadata.len() as usize, None)?;
 
-        let mut file = File::open(path).map_err(|e| {
-            Error::DocumentSubmissionFailed(format!("Failed to open file: {}", e))
-        })?;
+        let mut file = File::open(path)
+            .map_err(|e| Error::DocumentSubmissionFailed(format!("Failed to open file: {}", e)))?;
 
         let mut content = Vec::new();
-        file.read_to_end(&mut content).map_err(|e| {
-            Error::DocumentSubmissionFailed(format!("Failed to read file: {}", e))
-        })?;
+        file.read_to_end(&mut content)
+            .map_err(|e| Error::DocumentSubmissionFailed(format!("Failed to read file: {}", e)))?;
 
-        self.submit_data(&content, format, path.file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("document"))
+        self.submit_data(
+            &content,
+            format,
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("document"),
+        )
     }
 
     pub fn submit_data(&self, data: &[u8], format: &str, doc_name: &str) -> Result<()> {
@@ -74,11 +79,11 @@ impl Job {
         check_document_size(data.len(), None)?;
 
         let dest = crate::get_destination(&self.dest_name)?;
-        
+
         if !dest.is_accepting_jobs() {
             return Err(Error::PrinterNotAccepting(
                 self.dest_name.clone(),
-                "Printer is currently not accepting jobs".to_string()
+                "Printer is currently not accepting jobs".to_string(),
             ));
         }
 
@@ -120,16 +125,19 @@ impl Job {
                 }
             }
 
-            return Err(cups_error_to_our_error("document start", Some(&self.dest_name)));
+            return Err(cups_error_to_our_error(
+                "document start",
+                Some(&self.dest_name),
+            ));
         }
 
         let mut bytes_written = 0;
         let mut remaining = data.len();
-        
+
         while remaining > 0 {
             let chunk_size = remaining.min(8192);
             let chunk = &data[bytes_written..bytes_written + chunk_size];
-            
+
             let result = unsafe {
                 bindings::cupsWriteRequestData(
                     ptr::null_mut(),
@@ -152,9 +160,10 @@ impl Job {
                     }
                 }
 
-                return Err(Error::DocumentSubmissionFailed(
-                    format!("Failed to write data at byte {} (network error or timeout)", bytes_written)
-                ));
+                return Err(Error::DocumentSubmissionFailed(format!(
+                    "Failed to write data at byte {} (network error or timeout)",
+                    bytes_written
+                )));
             }
 
             bytes_written += chunk_size;
@@ -162,11 +171,7 @@ impl Job {
         }
 
         let finish_status = unsafe {
-            bindings::cupsFinishDestDocument(
-                ptr::null_mut(),
-                dest_ptr,
-                dest_info.as_ptr(),
-            )
+            bindings::cupsFinishDestDocument(ptr::null_mut(), dest_ptr, dest_info.as_ptr())
         };
 
         unsafe {
@@ -185,7 +190,10 @@ impl Job {
         if finish_status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
             Ok(())
         } else {
-            Err(cups_error_to_our_error("document finish", Some(&self.dest_name)))
+            Err(cups_error_to_our_error(
+                "document finish",
+                Some(&self.dest_name),
+            ))
         }
     }
 }
@@ -194,20 +202,20 @@ pub fn create_job(dest: &Destination, title: &str) -> Result<Job> {
     if !dest.is_accepting_jobs() {
         return Err(Error::PrinterNotAccepting(
             dest.name.clone(),
-            "Printer is not accepting new jobs".to_string()
+            "Printer is not accepting new jobs".to_string(),
         ));
     }
 
     let title_c = CString::new(title)?;
     let dest_info = dest.get_detailed_info(ptr::null_mut())?;
     let dest_ptr = dest.as_ptr();
-    
+
     if dest_ptr.is_null() {
         return Err(Error::NullPointer);
     }
-    
+
     let mut job_id: i32 = 0;
-    
+
     let status = unsafe {
         bindings::cupsCreateDestJob(
             ptr::null_mut(),
@@ -219,22 +227,22 @@ pub fn create_job(dest: &Destination, title: &str) -> Result<Job> {
             ptr::null_mut(),
         )
     };
-    
+
     unsafe {
         let dest_box = Box::from_raw(dest_ptr);
-        
+
         if !dest_box.name.is_null() {
             let _ = CString::from_raw(dest_box.name);
         }
         if !dest_box.instance.is_null() {
             let _ = CString::from_raw(dest_box.instance);
         }
-        
+
         if !dest_box.options.is_null() {
             bindings::cupsFreeOptions(dest_box.num_options, dest_box.options);
         }
     }
-    
+
     if status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
         Ok(Job::new(job_id, dest.name.clone(), title.to_string()))
     } else {
@@ -242,18 +250,22 @@ pub fn create_job(dest: &Destination, title: &str) -> Result<Job> {
     }
 }
 
-pub fn create_job_with_options(dest: &Destination, title: &str, options: &PrintOptions) -> Result<Job> {
+pub fn create_job_with_options(
+    dest: &Destination,
+    title: &str,
+    options: &PrintOptions,
+) -> Result<Job> {
     if !dest.is_accepting_jobs() {
         return Err(Error::PrinterNotAccepting(
             dest.name.clone(),
-            "Printer is not accepting new jobs".to_string()
+            "Printer is not accepting new jobs".to_string(),
         ));
     }
 
     let title_c = CString::new(title)?;
     let dest_info = dest.get_detailed_info(ptr::null_mut())?;
     let dest_ptr = dest.as_ptr();
-    
+
     if dest_ptr.is_null() {
         return Err(Error::NullPointer);
     }
@@ -275,9 +287,9 @@ pub fn create_job_with_options(dest: &Destination, title: &str, options: &PrintO
             );
         }
     }
-    
+
     let mut job_id: i32 = 0;
-    
+
     let status = unsafe {
         bindings::cupsCreateDestJob(
             ptr::null_mut(),
@@ -296,22 +308,25 @@ pub fn create_job_with_options(dest: &Destination, title: &str, options: &PrintO
         }
 
         let dest_box = Box::from_raw(dest_ptr);
-        
+
         if !dest_box.name.is_null() {
             let _ = CString::from_raw(dest_box.name);
         }
         if !dest_box.instance.is_null() {
             let _ = CString::from_raw(dest_box.instance);
         }
-        
+
         if !dest_box.options.is_null() {
             bindings::cupsFreeOptions(dest_box.num_options, dest_box.options);
         }
     }
-    
+
     if status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
         Ok(Job::new(job_id, dest.name.clone(), title.to_string()))
     } else {
-        Err(cups_error_to_our_error("job creation with options", Some(&dest.name)))
+        Err(cups_error_to_our_error(
+            "job creation with options",
+            Some(&dest.name),
+        ))
     }
 }

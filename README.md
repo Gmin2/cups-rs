@@ -24,7 +24,7 @@ cups_rs = "0.1.0"
 ## Usage
 
 - Discovering printers
-```
+```rust
 use cups_rs::{get_all_destinations, get_default_destination, get_destination};
 
 // Get all available printers
@@ -38,7 +38,7 @@ let printer = get_destination("PrinterName")?;
 ```
 
 - Printer Information
-```
+```rust
 // Basic printer properties
 let state = printer.state();              // PrinterState (Idle, Processing, Stopped, etc.)
 let reasons = printer.state_reasons();    // Vec<String> of state reasons
@@ -49,7 +49,7 @@ let accepting = printer.is_accepting_jobs(); // bool
 ```
 
 - Printer Capabilities
-```
+```rust
 use std::ptr;
 use cups_rs::{MEDIA, MEDIA_LETTER, MEDIA_FLAGS_DEFAULT};
 
@@ -83,7 +83,7 @@ let media_sizes = info.get_all_media(
 ```
 
 - Working with media sizes
-```
+```rust
 // Access media properties
 let width_inches = media.width_inches();
 let length_inches = media.length_inches();
