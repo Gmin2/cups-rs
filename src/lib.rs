@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod bindings;
+pub mod config;
 pub mod constants;
 pub mod destination;
 mod error;
