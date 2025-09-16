@@ -77,6 +77,9 @@ pub enum Error {
 
     #[error("Timeout waiting for operation to complete")]
     Timeout,
+
+    #[error("Connection failed: {0}")]
+    ConnectionFailed(String),
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
@@ -93,6 +96,7 @@ impl Error {
             Error::ServerUnavailable
             | Error::NetworkError(_)
             | Error::Timeout
+            | Error::ConnectionFailed(_)
             | Error::PrinterOffline(_) => true,
 
             Error::AuthenticationRequired(_)
@@ -109,7 +113,7 @@ impl Error {
 
     pub fn error_category(&self) -> ErrorCategory {
         match self {
-            Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout => {
+            Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout | Error::ConnectionFailed(_) => {
                 ErrorCategory::Network
             }
             Error::AuthenticationRequired(_) | Error::AuthenticationFailed(_) | Error::PermissionDenied(_) => {
@@ -137,6 +141,7 @@ impl Error {
             }
             Error::DocumentTooLarge(_, _) => "Reduce document size or split into smaller files",
             Error::NetworkError(_) => "Check network connectivity to CUPS server",
+            Error::ConnectionFailed(_) => "Check if destination is reachable and CUPS service is running",
             Error::Timeout => "Retry the operation or increase timeout value",
             Error::ConfigurationError(_) => "Check CUPS configuration files",
             _ => "Check CUPS logs for more details: sudo tail /var/log/cups/error_log",

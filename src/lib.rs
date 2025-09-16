@@ -1,6 +1,7 @@
 pub mod auth;
 pub mod bindings;
 pub mod config;
+pub mod connection;
 pub mod constants;
 pub mod destination;
 mod error;
@@ -8,6 +9,7 @@ mod error_helpers;
 pub mod job;
 
 pub use constants::*;
+pub use connection::{ConnectionFlags, HttpConnection, connect_to_destination};
 pub use destination::{
     Destination, DestinationInfo, Destinations, MediaSize, PrinterState, OptionConflict, copy_dest,
     enum_destinations, find_destinations, get_all_destinations, get_default_destination,
