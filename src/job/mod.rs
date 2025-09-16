@@ -41,6 +41,16 @@ impl Job {
     }
 
     pub fn submit_file<P: AsRef<Path>>(&self, file_path: P, format: &str) -> Result<()> {
+        self.submit_file_with_options(file_path, format, &[], true)
+    }
+
+    pub fn submit_file_with_options<P: AsRef<Path>>(
+        &self,
+        file_path: P,
+        format: &str,
+        options: &[(String, String)],
+        last_document: bool,
+    ) -> Result<()> {
         let path = file_path.as_ref();
 
         if !path.exists() {
@@ -65,16 +75,29 @@ impl Job {
         file.read_to_end(&mut content)
             .map_err(|e| Error::DocumentSubmissionFailed(format!("Failed to read file: {}", e)))?;
 
-        self.submit_data(
+        self.submit_data_with_options(
             &content,
             format,
             path.file_name()
                 .and_then(|n| n.to_str())
                 .unwrap_or("document"),
+            options,
+            last_document,
         )
     }
 
     pub fn submit_data(&self, data: &[u8], format: &str, doc_name: &str) -> Result<()> {
+        self.submit_data_with_options(data, format, doc_name, &[], true)
+    }
+
+    pub fn submit_data_with_options(
+        &self,
+        data: &[u8],
+        format: &str,
+        doc_name: &str,
+        options: &[(String, String)],
+        last_document: bool,
+    ) -> Result<()> {
         validate_document_format(format, &self.dest_name)?;
         check_document_size(data.len(), None)?;
 
@@ -97,6 +120,23 @@ impl Job {
         let doc_name_c = CString::new(doc_name)?;
         let format_c = CString::new(format)?;
 
+        let mut cups_options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
+        let mut num_options = 0;
+
+        for (name, value) in options {
+            let name_c = CString::new(name.as_str())?;
+            let value_c = CString::new(value.as_str())?;
+
+            unsafe {
+                num_options = bindings::cupsAddOption(
+                    name_c.as_ptr(),
+                    value_c.as_ptr(),
+                    num_options,
+                    &mut cups_options_ptr,
+                );
+            }
+        }
+
         let status = unsafe {
             bindings::cupsStartDestDocument(
                 ptr::null_mut(),
@@ -105,14 +145,18 @@ impl Job {
                 self.id,
                 doc_name_c.as_ptr(),
                 format_c.as_ptr(),
-                0,
-                ptr::null_mut(),
-                1,
+                num_options,
+                cups_options_ptr,
+                if last_document { 1 } else { 0 },
             )
         };
 
         if status != bindings::http_status_e_HTTP_STATUS_CONTINUE as bindings::http_status_t {
             unsafe {
+                if !cups_options_ptr.is_null() {
+                    bindings::cupsFreeOptions(num_options, cups_options_ptr);
+                }
+
                 let dest_box = Box::from_raw(dest_ptr);
                 if !dest_box.name.is_null() {
                     let _ = CString::from_raw(dest_box.name);
@@ -148,6 +192,10 @@ impl Job {
 
             if result != bindings::http_status_e_HTTP_STATUS_CONTINUE as bindings::http_status_t {
                 unsafe {
+                    if !cups_options_ptr.is_null() {
+                        bindings::cupsFreeOptions(num_options, cups_options_ptr);
+                    }
+
                     let dest_box = Box::from_raw(dest_ptr);
                     if !dest_box.name.is_null() {
                         let _ = CString::from_raw(dest_box.name);
@@ -175,6 +223,10 @@ impl Job {
         };
 
         unsafe {
+            if !cups_options_ptr.is_null() {
+                bindings::cupsFreeOptions(num_options, cups_options_ptr);
+            }
+
             let dest_box = Box::from_raw(dest_ptr);
             if !dest_box.name.is_null() {
                 let _ = CString::from_raw(dest_box.name);
