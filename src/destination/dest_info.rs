@@ -340,6 +340,196 @@ impl DestinationInfo {
             Ok(localized)
         }
     }
+
+    /// Get ready (loaded) media
+    /// 
+    /// Returns the media sizes that are currently loaded/ready in the printer.
+    /// This is different from supported media - ready media are the ones actually
+    /// available for immediate use.
+    pub fn get_ready_media(
+        &self,
+        http: *mut bindings::_http_s,
+        dest: *mut bindings::cups_dest_s,
+    ) -> Result<Vec<MediaSize>> {
+        let option_c = match CString::new("media") {
+            Ok(s) => s,
+            Err(_) => return Ok(Vec::new()),
+        };
+
+        let ready_attr = unsafe {
+            bindings::cupsFindDestReady(http, dest, self.dinfo, option_c.as_ptr())
+        };
+
+        if ready_attr.is_null() {
+            return Ok(Vec::new());
+        }
+
+        let mut ready_media = Vec::new();
+        let count = unsafe { bindings::ippGetCount(ready_attr) };
+        
+        for i in 0..count {
+            unsafe {
+                let media_name_ptr = bindings::ippGetString(ready_attr, i, ptr::null_mut());
+                if !media_name_ptr.is_null() {
+                    let media_name = CStr::from_ptr(media_name_ptr).to_string_lossy();
+                    
+                    // Try to get the full media size info for this ready media
+                    match self.get_media_by_name(http, dest, &media_name, 0) {
+                        Ok(size) => ready_media.push(size),
+                        Err(_) => {
+                            // If we can't get full info, create a basic MediaSize
+                            ready_media.push(MediaSize {
+                                name: media_name.into_owned(),
+                                width: 0,
+                                length: 0,
+                                left: 0,
+                                bottom: 0,
+                                right: 0,
+                                top: 0,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(ready_media)
+    }
+
+    /// Get ready (loaded) finishings
+    /// 
+    /// Returns the finishing processes that are currently ready/available.
+    /// For example, if a printer has staple and punch finishers but is out of staples,
+    /// this will only return punch options.
+    pub fn get_ready_finishings(
+        &self,
+        http: *mut bindings::_http_s,
+        dest: *mut bindings::cups_dest_s,
+    ) -> Result<Vec<i32>> {
+        let option_c = match CString::new("finishings") {
+            Ok(s) => s,
+            Err(_) => return Ok(Vec::new()),
+        };
+
+        let ready_attr = unsafe {
+            bindings::cupsFindDestReady(http, dest, self.dinfo, option_c.as_ptr())
+        };
+
+        if ready_attr.is_null() {
+            return Ok(Vec::new());
+        }
+
+        let mut ready_finishings = Vec::new();
+        let count = unsafe { bindings::ippGetCount(ready_attr) };
+        
+        for i in 0..count {
+            let finishing = unsafe { bindings::ippGetInteger(ready_attr, i) };
+            ready_finishings.push(finishing);
+        }
+
+        Ok(ready_finishings)
+    }
+
+    /// Get default value for an option
+    /// 
+    /// Returns the default value for a given option as a string.
+    /// This is the printer's default, not the user's saved preference.
+    pub fn get_default_value(
+        &self,
+        http: *mut bindings::_http_s,
+        dest: *mut bindings::cups_dest_s,
+        option: &str,
+    ) -> Result<Option<String>> {
+        let option_c = CString::new(option)?;
+
+        let default_attr = unsafe {
+            bindings::cupsFindDestDefault(http, dest, self.dinfo, option_c.as_ptr())
+        };
+
+        if default_attr.is_null() {
+            return Ok(None);
+        }
+
+        // Try to get as string first
+        unsafe {
+            let value_ptr = bindings::ippGetString(default_attr, 0, ptr::null_mut());
+            if !value_ptr.is_null() {
+                let value = CStr::from_ptr(value_ptr).to_string_lossy().into_owned();
+                return Ok(Some(value));
+            }
+
+            // If not a string, try as integer
+            let int_value = bindings::ippGetInteger(default_attr, 0);
+            if int_value != 0 {
+                return Ok(Some(int_value.to_string()));
+            }
+
+            // If not an integer, try as boolean
+            let bool_value = bindings::ippGetBoolean(default_attr, 0);
+            Ok(Some(if bool_value != 0 { "true".to_string() } else { "false".to_string() }))
+        }
+    }
+
+    /// Get supported values for an option
+    /// 
+    /// Returns a list of all values supported for the given option.
+    /// The returned values are formatted as strings.
+    pub fn get_supported_values(
+        &self,
+        http: *mut bindings::_http_s,
+        dest: *mut bindings::cups_dest_s,
+        option: &str,
+    ) -> Result<Vec<String>> {
+        let option_c = CString::new(option)?;
+
+        let supported_attr = unsafe {
+            bindings::cupsFindDestSupported(http, dest, self.dinfo, option_c.as_ptr())
+        };
+
+        if supported_attr.is_null() {
+            return Ok(Vec::new());
+        }
+
+        let mut supported_values = Vec::new();
+        let count = unsafe { bindings::ippGetCount(supported_attr) };
+        
+        for i in 0..count {
+            unsafe {
+                // Try to get as string first
+                let value_ptr = bindings::ippGetString(supported_attr, i, ptr::null_mut());
+                if !value_ptr.is_null() {
+                    let value = CStr::from_ptr(value_ptr).to_string_lossy().into_owned();
+                    supported_values.push(value);
+                    continue;
+                }
+
+                // If not a string, try as integer
+                let int_value = bindings::ippGetInteger(supported_attr, i);
+                if int_value != 0 || i == 0 { // Include 0 if it's the first value
+                    supported_values.push(int_value.to_string());
+                    continue;
+                }
+
+                // If not an integer, try as boolean
+                let bool_value = bindings::ippGetBoolean(supported_attr, i);
+                supported_values.push(if bool_value != 0 { "true".to_string() } else { "false".to_string() });
+            }
+        }
+
+        Ok(supported_values)
+    }
+
+    /// Get supported options for job creation
+    /// 
+    /// Returns a list of all options that can be used when creating jobs
+    /// for this destination.
+    pub fn get_supported_options(
+        &self,
+        http: *mut bindings::_http_s,
+        dest: *mut bindings::cups_dest_s,
+    ) -> Result<Vec<String>> {
+        self.get_supported_values(http, dest, "job-creation-attributes")
+    }
 }
 
 impl Drop for DestinationInfo {
