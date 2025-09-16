@@ -51,6 +51,9 @@ pub enum Error {
     #[error("Authentication required for destination '{0}'")]
     AuthenticationRequired(String),
 
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
+
     #[error("Permission denied for operation on '{0}'")]
     PermissionDenied(String),
 
@@ -109,7 +112,7 @@ impl Error {
             Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout => {
                 ErrorCategory::Network
             }
-            Error::AuthenticationRequired(_) | Error::PermissionDenied(_) => {
+            Error::AuthenticationRequired(_) | Error::AuthenticationFailed(_) | Error::PermissionDenied(_) => {
                 ErrorCategory::Authentication
             }
             Error::PrinterOffline(_) | Error::PrinterNotAccepting(_, _) => ErrorCategory::Printer,
@@ -126,6 +129,7 @@ impl Error {
                 "Check if CUPS service is running: sudo systemctl status cups"
             }
             Error::AuthenticationRequired(_) => "Provide valid credentials for the printer",
+            Error::AuthenticationFailed(_) => "Check username/password and try again",
             Error::PrinterOffline(_) => "Check printer connection and power status",
             Error::PrinterNotAccepting(_, _) => "Enable job acceptance: cupsaccept <printer>",
             Error::InvalidFormat(_, _) => {
