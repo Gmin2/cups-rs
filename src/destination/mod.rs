@@ -385,6 +385,15 @@ pub struct Destinations {
 }
 
 impl Destinations {
+    /// Create a new empty destinations list
+    pub fn new() -> Self {
+        Destinations {
+            dests: ptr::null_mut(),
+            num_dests: 0,
+            _marker: PhantomData,
+        }
+    }
+
     /// Get all available destinations from the default CUPS server
     pub fn get_all() -> Result<Self> {
         let mut dests: *mut bindings::cups_dest_s = ptr::null_mut();
@@ -478,6 +487,337 @@ impl Destinations {
     /// Get number of destinations
     pub fn count(&self) -> c_int {
         self.num_dests
+    }
+
+    /// Add a destination to the list of destinations
+    /// 
+    /// If the named destination already exists, the destination list is returned unchanged.
+    /// Adding a new instance of a destination creates a copy of that destination's options.
+    /// 
+    /// # Arguments
+    /// - `name`: Destination name
+    /// - `instance`: Instance name or None for none/primary
+    /// 
+    /// # Returns
+    /// - `Ok(())`: Destination added successfully
+    /// - `Err(Error)`: Failed to add destination
+    pub fn add_destination(&mut self, name: &str, instance: Option<&str>) -> Result<()> {
+        let name_c = CString::new(name)?;
+        let instance_c = instance.map(|i| CString::new(i)).transpose()?;
+        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+
+        let new_num_dests = unsafe {
+            bindings::cupsAddDest(
+                name_c.as_ptr(),
+                instance_ptr,
+                self.num_dests,
+                &mut self.dests,
+            )
+        };
+
+        if new_num_dests > self.num_dests {
+            self.num_dests = new_num_dests;
+            Ok(())
+        } else {
+            // Destination already exists or error occurred
+            Ok(()) // CUPS API treats existing destinations as success
+        }
+    }
+
+    /// Remove a destination from the destination list
+    /// 
+    /// Removing a destination/instance does not delete the class or printer queue,
+    /// merely the lpoptions for that destination/instance.
+    /// 
+    /// # Arguments
+    /// - `name`: Destination name
+    /// - `instance`: Instance name or None
+    /// 
+    /// # Returns
+    /// - `Ok(true)`: Destination was found and removed
+    /// - `Ok(false)`: Destination was not found
+    /// - `Err(Error)`: Failed to remove destination
+    pub fn remove_destination(&mut self, name: &str, instance: Option<&str>) -> Result<bool> {
+        let name_c = CString::new(name)?;
+        let instance_c = instance.map(|i| CString::new(i)).transpose()?;
+        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+
+        let old_count = self.num_dests;
+        let new_num_dests = unsafe {
+            bindings::cupsRemoveDest(
+                name_c.as_ptr(),
+                instance_ptr,
+                self.num_dests,
+                &mut self.dests,
+            )
+        };
+
+        self.num_dests = new_num_dests;
+        Ok(new_num_dests < old_count)
+    }
+
+    /// Set the default destination
+    /// 
+    /// This marks one of the destinations in the list as the default destination.
+    /// 
+    /// # Arguments
+    /// - `name`: Destination name
+    /// - `instance`: Instance name or None
+    /// 
+    /// # Returns
+    /// - `Ok(())`: Default destination set successfully
+    /// - `Err(Error)`: Failed to set default destination
+    pub fn set_default_destination(&mut self, name: &str, instance: Option<&str>) -> Result<()> {
+        let name_c = CString::new(name)?;
+        let instance_c = instance.map(|i| CString::new(i)).transpose()?;
+        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+
+        unsafe {
+            bindings::cupsSetDefaultDest(
+                name_c.as_ptr(),
+                instance_ptr,
+                self.num_dests,
+                self.dests,
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Save the list of destinations to the user's lpoptions file
+    /// 
+    /// This saves the current destination list and their options to the user's
+    /// lpoptions file for persistence across sessions.
+    /// 
+    /// # Returns
+    /// - `Ok(())`: Destinations saved successfully
+    /// - `Err(Error)`: Failed to save destinations
+    pub fn save_to_lpoptions(&self) -> Result<()> {
+        let result = unsafe {
+            bindings::cupsSetDests2(
+                ptr::null_mut(), // Use CUPS_HTTP_DEFAULT
+                self.num_dests,
+                self.dests,
+            )
+        };
+
+        if result == 0 {
+            Ok(())
+        } else {
+            Err(Error::ConfigurationError(
+                "Failed to save destinations to lpoptions".to_string(),
+            ))
+        }
+    }
+
+    /// Find a destination by name and instance
+    /// 
+    /// # Arguments
+    /// - `name`: Destination name to search for
+    /// - `instance`: Instance name or None
+    /// 
+    /// # Returns
+    /// - `Some(Destination)`: Found destination
+    /// - `None`: Destination not found
+    pub fn find_destination(&self, name: &str, instance: Option<&str>) -> Option<Destination> {
+        let name_c = match CString::new(name) {
+            Ok(n) => n,
+            Err(_) => return None,
+        };
+        let instance_c = instance.and_then(|i| CString::new(i).ok());
+        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+
+        let dest_ptr = unsafe {
+            bindings::cupsGetDest(
+                name_c.as_ptr(),
+                instance_ptr,
+                self.num_dests,
+                self.dests,
+            )
+        };
+
+        if dest_ptr.is_null() {
+            None
+        } else {
+            unsafe { Destination::from_raw(dest_ptr).ok() }
+        }
+    }
+}
+
+/// Represents option conflicts and their resolutions
+#[derive(Debug, Clone)]
+pub struct OptionConflict {
+    /// The conflicting option/value pairs
+    pub conflicting_options: Vec<(String, String)>,
+    /// The resolved option/value pairs to fix conflicts
+    pub resolved_options: Vec<(String, String)>,
+}
+
+impl DestinationInfo {
+    /// Check for option conflicts and get resolutions for a new option/value pair
+    /// 
+    /// This function checks if adding a new option/value pair would conflict
+    /// with existing options and provides resolutions if conflicts are found.
+    /// 
+    /// # Arguments
+    /// - `current_options`: Current option/value pairs
+    /// - `new_option`: The new option name to check
+    /// - `new_value`: The new option value to check
+    /// 
+    /// # Returns
+    /// - `Ok(None)`: No conflicts found
+    /// - `Ok(Some(OptionConflict))`: Conflicts found with resolution
+    /// - `Err(Error)`: Error checking conflicts or unresolvable conflict
+    pub fn check_option_conflicts(
+        &self,
+        dest: &Destination,
+        current_options: &[(String, String)],
+        new_option: &str,
+        new_value: &str,
+    ) -> Result<Option<OptionConflict>> {
+        // Convert current options to CUPS format
+        let mut cups_options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
+        let mut num_options = 0;
+
+        for (name, value) in current_options {
+            let name_c = CString::new(name.as_str())?;
+            let value_c = CString::new(value.as_str())?;
+
+            unsafe {
+                num_options = bindings::cupsAddOption(
+                    name_c.as_ptr(),
+                    value_c.as_ptr(),
+                    num_options,
+                    &mut cups_options_ptr,
+                );
+            }
+        }
+
+        let new_option_c = CString::new(new_option)?;
+        let new_value_c = CString::new(new_value)?;
+
+        // Get destination pointer (we need to create one temporarily)
+        let dest_name_c = CString::new(dest.name.as_str())?;
+        let dest_instance_c = dest.instance.as_ref().map(|i| CString::new(i.as_str())).transpose()?;
+        let dest_instance_ptr = dest_instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+
+        let dest_ptr = unsafe {
+            bindings::cupsGetDest(
+                dest_name_c.as_ptr(),
+                dest_instance_ptr,
+                1, // We just need a temporary dest
+                ptr::null_mut(), // Let CUPS find it
+            )
+        };
+
+        if dest_ptr.is_null() {
+            unsafe {
+                if !cups_options_ptr.is_null() {
+                    bindings::cupsFreeOptions(num_options, cups_options_ptr);
+                }
+            }
+            return Err(Error::DestinationNotFound(dest.name.clone()));
+        }
+
+        let mut num_conflicts = 0;
+        let mut conflicts: *mut bindings::cups_option_s = ptr::null_mut();
+        let mut num_resolved = 0;
+        let mut resolved: *mut bindings::cups_option_s = ptr::null_mut();
+
+        let conflict_result = unsafe {
+            bindings::cupsCopyDestConflicts(
+                ptr::null_mut(), // Use CUPS_HTTP_DEFAULT
+                dest_ptr,
+                self.as_ptr(),
+                num_options,
+                cups_options_ptr,
+                new_option_c.as_ptr(),
+                new_value_c.as_ptr(),
+                &mut num_conflicts,
+                &mut conflicts,
+                &mut num_resolved,
+                &mut resolved,
+            )
+        };
+
+        // Clean up temporary options
+        unsafe {
+            if !cups_options_ptr.is_null() {
+                bindings::cupsFreeOptions(num_options, cups_options_ptr);
+            }
+        }
+
+        let result = match conflict_result {
+            1 => {
+                // Conflicts found
+                let mut conflicting_options = Vec::new();
+                let mut resolved_options = Vec::new();
+
+                // Extract conflicting options
+                if !conflicts.is_null() && num_conflicts > 0 {
+                    for i in 0..num_conflicts {
+                        unsafe {
+                            let option = &*conflicts.offset(i as isize);
+                            if !option.name.is_null() && !option.value.is_null() {
+                                let name = CStr::from_ptr(option.name).to_string_lossy().into_owned();
+                                let value = CStr::from_ptr(option.value).to_string_lossy().into_owned();
+                                conflicting_options.push((name, value));
+                            }
+                        }
+                    }
+                }
+
+                // Extract resolved options
+                if !resolved.is_null() && num_resolved > 0 {
+                    for i in 0..num_resolved {
+                        unsafe {
+                            let option = &*resolved.offset(i as isize);
+                            if !option.name.is_null() && !option.value.is_null() {
+                                let name = CStr::from_ptr(option.name).to_string_lossy().into_owned();
+                                let value = CStr::from_ptr(option.value).to_string_lossy().into_owned();
+                                resolved_options.push((name, value));
+                            }
+                        }
+                    }
+                }
+
+                // Clean up CUPS-allocated memory
+                unsafe {
+                    if !conflicts.is_null() {
+                        bindings::cupsFreeOptions(num_conflicts, conflicts);
+                    }
+                    if !resolved.is_null() {
+                        bindings::cupsFreeOptions(num_resolved, resolved);
+                    }
+                }
+
+                if resolved_options.is_empty() && !conflicting_options.is_empty() {
+                    // Unresolvable conflict
+                    Err(Error::ConfigurationError(format!(
+                        "Unresolvable option conflict: {} = {} conflicts with existing options",
+                        new_option, new_value
+                    )))
+                } else {
+                    Ok(Some(OptionConflict {
+                        conflicting_options,
+                        resolved_options,
+                    }))
+                }
+            }
+            0 => {
+                // No conflicts
+                Ok(None)
+            }
+            _ => {
+                // Error occurred
+                Err(Error::ConfigurationError(format!(
+                    "Error checking option conflicts for {} = {}",
+                    new_option, new_value
+                )))
+            }
+        };
+
+        result
     }
 }
 
