@@ -14,27 +14,27 @@ pub enum JobStatus {
 
 impl JobStatus {
     pub fn from_cups_state(state: i32) -> Self {
-        match state {
-            3 => JobStatus::Pending,
-            4 => JobStatus::Processing,
-            5 => JobStatus::Completed,
-            6 => JobStatus::Canceled,
-            7 => JobStatus::Aborted,
-            8 => JobStatus::Held,
-            9 => JobStatus::Stopped,
+        match state as u32 {
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_PENDING => JobStatus::Pending,
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_PROCESSING => JobStatus::Processing,
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_COMPLETED => JobStatus::Completed,
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_CANCELED => JobStatus::Canceled,
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_ABORTED => JobStatus::Aborted,
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_HELD => JobStatus::Held,
+            crate::bindings::ipp_jstate_e_IPP_JSTATE_STOPPED => JobStatus::Stopped,
             _ => JobStatus::Unknown,
         }
     }
 
     pub fn to_cups_value(&self) -> i32 {
         match self {
-            JobStatus::Pending => 3,
-            JobStatus::Processing => 4,
-            JobStatus::Completed => 5,
-            JobStatus::Canceled => 6,
-            JobStatus::Aborted => 7,
-            JobStatus::Held => 8,
-            JobStatus::Stopped => 9,
+            JobStatus::Pending => crate::bindings::ipp_jstate_e_IPP_JSTATE_PENDING as i32,
+            JobStatus::Processing => crate::bindings::ipp_jstate_e_IPP_JSTATE_PROCESSING as i32,
+            JobStatus::Completed => crate::bindings::ipp_jstate_e_IPP_JSTATE_COMPLETED as i32,
+            JobStatus::Canceled => crate::bindings::ipp_jstate_e_IPP_JSTATE_CANCELED as i32,
+            JobStatus::Aborted => crate::bindings::ipp_jstate_e_IPP_JSTATE_ABORTED as i32,
+            JobStatus::Held => crate::bindings::ipp_jstate_e_IPP_JSTATE_HELD as i32,
+            JobStatus::Stopped => crate::bindings::ipp_jstate_e_IPP_JSTATE_STOPPED as i32,
             JobStatus::Unknown => 0,
         }
     }
