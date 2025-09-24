@@ -124,7 +124,7 @@ impl Destination {
                 flags.into(),
                 timeout,
                 cancel_ptr,
-                resource_buf.as_mut_ptr() as *mut i8,
+                resource_buf.as_mut_ptr() as *mut ::std::os::raw::c_char,
                 RESOURCE_SIZE,
                 None, // No callback for now
                 ptr::null_mut(), // No user data
@@ -205,7 +205,7 @@ impl Destination {
                 flags.into(),
                 timeout,
                 cancel_ptr,
-                resource_buf.as_mut_ptr() as *mut i8,
+                resource_buf.as_mut_ptr() as *mut ::std::os::raw::c_char,
                 RESOURCE_SIZE,
                 Some(connect_dest_callback::<T>),
                 &mut context as *mut _ as *mut c_void,
