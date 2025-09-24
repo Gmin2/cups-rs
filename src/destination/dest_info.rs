@@ -262,7 +262,7 @@ impl DestinationInfo {
         let name_bytes = size.name.as_bytes();
         let max_len = 127.min(name_bytes.len());
         for i in 0..max_len {
-            cups_size.media[i] = name_bytes[i] as i8;
+            cups_size.media[i] = name_bytes[i] as ::std::os::raw::c_char;
         }
         cups_size.media[max_len] = 0;
 
