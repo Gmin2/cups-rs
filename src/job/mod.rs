@@ -185,7 +185,7 @@ impl Job {
             let result = unsafe {
                 bindings::cupsWriteRequestData(
                     ptr::null_mut(),
-                    chunk.as_ptr() as *const i8,
+                    chunk.as_ptr() as *const ::std::os::raw::c_char,
                     chunk_size,
                 )
             };
