@@ -6,6 +6,7 @@ pub mod constants;
 pub mod destination;
 mod error;
 mod error_helpers;
+pub mod ipp;
 pub mod job;
 pub mod options;
 
@@ -20,6 +21,9 @@ pub use error::{Error, ErrorCategory, Result};
 pub use job::{
     ColorMode, DuplexMode, JobInfo, JobStatus, Orientation, PrintOptions, PrintQuality,
     get_active_jobs, get_completed_jobs, *,
+};
+pub use ipp::{
+    IppAttribute, IppOperation, IppRequest, IppResponse, IppStatus, IppTag, IppValueTag,
 };
 pub use options::{
     add_integer_option, add_option, encode_option, encode_options, encode_options_with_group,

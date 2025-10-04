@@ -166,7 +166,7 @@ pub fn get_integer_option(name: &str, options: &[(String, String)]) -> Option<i3
 /// * `Ok(())` - Option encoded successfully
 /// * `Err(Error)` - Encoding failed
 pub fn encode_option(
-    ipp: *mut bindings::ipp_s,
+    ipp: *mut bindings::_ipp_s,
     group_tag: bindings::ipp_tag_t,
     name: &str,
     value: &str,
@@ -207,7 +207,7 @@ pub fn encode_option(
 /// * `Ok(())` - Options encoded successfully
 /// * `Err(Error)` - Encoding failed
 pub fn encode_options(
-    ipp: *mut bindings::ipp_s,
+    ipp: *mut bindings::_ipp_s,
     options: &[(String, String)],
 ) -> Result<()> {
     if ipp.is_null() {
@@ -256,7 +256,7 @@ pub fn encode_options(
 /// * `Ok(())` - Options encoded successfully
 /// * `Err(Error)` - Encoding failed
 pub fn encode_options_with_group(
-    ipp: *mut bindings::ipp_s,
+    ipp: *mut bindings::_ipp_s,
     options: &[(String, String)],
     group_tag: bindings::ipp_tag_t,
 ) -> Result<()> {
@@ -329,7 +329,7 @@ mod tests {
 
     #[test]
     fn test_remove_option() {
-        let mut options = vec![
+        let options = vec![
             ("copies".to_string(), "2".to_string()),
             ("media".to_string(), "a4".to_string()),
         ];
