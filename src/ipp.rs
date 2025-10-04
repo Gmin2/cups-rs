@@ -1,3 +1,35 @@
+//! Low-level IPP (Internet Printing Protocol) request and response handling
+//!
+//! This module provides type-safe wrappers around CUPS IPP functions for building
+//! and sending custom IPP requests. It's useful for advanced use cases that aren't
+//! covered by the higher-level destination and job APIs.
+//!
+//! # Examples
+//!
+//! ## Creating and Sending an IPP Request
+//!
+//! ```no_run
+//! use cups_rs::{IppRequest, IppOperation, IppTag, IppValueTag, ConnectionFlags, get_default_destination};
+//!
+//! let printer = get_default_destination().expect("No default printer");
+//! let connection = printer.connect(ConnectionFlags::Scheduler, Some(5000), None)
+//!     .expect("Failed to connect");
+//!
+//! let mut request = IppRequest::new(IppOperation::GetPrinterAttributes)
+//!     .expect("Failed to create request");
+//!
+//! request.add_string(IppTag::Operation, IppValueTag::Uri,
+//!                   "printer-uri", "ipp://localhost/printers/default")
+//!     .expect("Failed to add attribute");
+//!
+//! let response = request.send(&connection, connection.resource_path())
+//!     .expect("Failed to send request");
+//!
+//! if response.is_successful() {
+//!     println!("Request successful!");
+//! }
+//! ```
+
 use crate::bindings;
 use crate::connection::HttpConnection;
 use crate::error::{Error, Result};
@@ -6,6 +38,8 @@ use std::marker::PhantomData;
 use std::ptr;
 
 /// IPP attribute group tags
+///
+/// These tags define which group an IPP attribute belongs to in an IPP message.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IppTag {
     Zero,
@@ -34,6 +68,8 @@ impl From<IppTag> for bindings::ipp_tag_t {
 }
 
 /// IPP value tags
+///
+/// These tags define the type of value an IPP attribute contains.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IppValueTag {
     Integer,
@@ -68,6 +104,8 @@ impl From<IppValueTag> for bindings::ipp_tag_t {
 }
 
 /// IPP operation codes
+///
+/// These codes identify the operation being performed in an IPP request.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IppOperation {
     PrintJob,
@@ -100,6 +138,8 @@ impl From<IppOperation> for bindings::ipp_op_t {
 }
 
 /// IPP status codes
+///
+/// These codes indicate the result of an IPP operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IppStatus {
     Ok,
@@ -170,6 +210,22 @@ impl IppStatus {
 }
 
 /// An IPP request message
+///
+/// Represents an IPP request that can be customized with attributes and sent to a CUPS server.
+/// The request is automatically freed when dropped.
+///
+/// # Examples
+///
+/// ```no_run
+/// use cups_rs::{IppRequest, IppOperation, IppTag, IppValueTag};
+///
+/// let mut request = IppRequest::new(IppOperation::GetPrinterAttributes)
+///     .expect("Failed to create request");
+///
+/// request.add_string(IppTag::Operation, IppValueTag::Keyword,
+///                   "requested-attributes", "printer-state")
+///     .expect("Failed to add attribute");
+/// ```
 pub struct IppRequest {
     ipp: *mut bindings::_ipp_s,
     _phantom: PhantomData<bindings::_ipp_s>,
@@ -360,6 +416,25 @@ impl Drop for IppRequest {
 }
 
 /// An IPP response message
+///
+/// Represents the response from an IPP request. Contains status code and attributes
+/// that can be queried. The response is automatically freed when dropped.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use cups_rs::{IppRequest, IppOperation, IppTag, ConnectionFlags, get_default_destination};
+/// # let printer = get_default_destination().unwrap();
+/// # let connection = printer.connect(ConnectionFlags::Scheduler, Some(5000), None).unwrap();
+/// # let request = IppRequest::new(IppOperation::GetPrinterAttributes).unwrap();
+/// let response = request.send(&connection, connection.resource_path()).unwrap();
+///
+/// if response.is_successful() {
+///     if let Some(attr) = response.find_attribute("printer-state", Some(IppTag::Printer)) {
+///         println!("Printer state: {:?}", attr.get_integer(0));
+///     }
+/// }
+/// ```
 pub struct IppResponse {
     ipp: *mut bindings::_ipp_s,
     _phantom: PhantomData<bindings::_ipp_s>,
@@ -428,6 +503,9 @@ impl Drop for IppResponse {
 }
 
 /// An IPP attribute
+///
+/// Represents a single attribute from an IPP response. Attributes can contain
+/// one or more values of various types (string, integer, boolean, etc.).
 #[derive(Clone, Copy)]
 pub struct IppAttribute {
     attr: *mut bindings::_ipp_attribute_s,

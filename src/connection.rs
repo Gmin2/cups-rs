@@ -6,7 +6,7 @@ use std::os::raw::{c_int, c_void};
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Connection flags for cupsConnectDest
+/// Connection flags for controlling how to connect to a destination
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConnectionFlags {
     /// Connect to CUPS scheduler
@@ -25,6 +25,21 @@ impl From<ConnectionFlags> for u32 {
 }
 
 /// Represents an HTTP connection to a CUPS server or printer
+///
+/// This structure provides a safe wrapper around the CUPS `http_t` type.
+/// Connections are automatically closed when the HttpConnection is dropped.
+///
+/// # Examples
+///
+/// ```no_run
+/// use cups_rs::{get_default_destination, ConnectionFlags};
+///
+/// let printer = get_default_destination().expect("No default printer");
+/// let connection = printer.connect(ConnectionFlags::Scheduler, Some(5000), None)
+///     .expect("Failed to connect");
+///
+/// println!("Connected to: {}", connection.resource_path());
+/// ```
 pub struct HttpConnection {
     http: *mut bindings::_http_s,
     resource: String,
