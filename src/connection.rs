@@ -1,7 +1,6 @@
 use crate::bindings;
 use crate::destination::{DestCallback, Destination};
 use crate::error::{Error, Result};
-use std::ffi::CString;
 use std::marker::PhantomData;
 use std::os::raw::{c_int, c_void};
 use std::ptr;

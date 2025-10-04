@@ -982,8 +982,7 @@ pub fn find_destinations(type_filter: u32, mask: u32) -> Result<Vec<Destination>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::constants::*;
-
+    
     #[test]
     fn test_destination_creation() {
         let mut options = std::collections::HashMap::new();
