@@ -18,8 +18,12 @@ use std::ptr;
 ///
 /// # Example
 /// ```
-/// let options = parse_options("copies=2 media=a4 sides=two-sided-long-edge")?;
-/// // Returns: [("copies", "2"), ("media", "a4"), ("sides", "two-sided-long-edge")]
+/// use cups_rs::parse_options;
+///
+/// let options = parse_options("copies=2 media=a4 sides=two-sided-long-edge");
+/// assert!(options.is_ok());
+/// let options = options.unwrap();
+/// assert_eq!(options.len(), 3);
 /// ```
 pub fn parse_options(arg: &str) -> Result<Vec<(String, String)>> {
     let arg_c = CString::new(arg)?;
