@@ -320,7 +320,7 @@ impl IppRequest {
         let name_c = CString::new(name)?;
 
         let attr = unsafe {
-            bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value as i8)
+            bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value as ::std::os::raw::c_char)
         };
 
         if attr.is_null() {
