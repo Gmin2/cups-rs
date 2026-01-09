@@ -183,8 +183,9 @@ pub use destination::{
 };
 pub use error::{Error, ErrorCategory, Result};
 pub use job::{
-    ColorMode, DuplexMode, JobInfo, JobStatus, Orientation, PrintOptions, PrintQuality,
-    create_job, create_job_with_options, get_active_jobs, get_completed_jobs,
+    ColorMode, DuplexMode, FORMAT_JPEG, FORMAT_PDF, FORMAT_POSTSCRIPT, FORMAT_TEXT, JobInfo,
+    JobStatus, Orientation, PrintOptions, PrintQuality, cancel_job, create_job,
+    create_job_with_options, get_active_jobs, get_completed_jobs, get_job_info, get_jobs,
 };
 pub use ipp::{
     IppAttribute, IppOperation, IppRequest, IppResponse, IppStatus, IppTag, IppValueTag,
