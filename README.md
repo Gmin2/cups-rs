@@ -260,6 +260,8 @@ Run examples with:
 cargo run --example discover_printers
 cargo run --example printer_capabilities -- PDF
 cargo run --example complete_workflow -- document.pdf MyPrinter
+cargo run --example lp -- -d MyPrinter file.txt
+cargo run --example lpstat -- -t
 ```
 
 ## Supported Print Options
@@ -273,12 +275,19 @@ cargo run --example complete_workflow -- document.pdf MyPrinter
 | `duplex` | `DuplexMode` | `OneSided`, `TwoSidedPortrait`, `TwoSidedLandscape` |
 | `orientation` | `Orientation` | `Portrait`, `Landscape` |
 
+## **lp** supports:
+- `-d -E -h -U -t -n -q -o -H -P -s` and stdin (`-`)
+
+## **lpstat** supports:
+- `-d -e -r -s -t -p -a -v -o -u -W -R -l -D -E -h -U`
+
 ## Supported Document Formats
 
 - **PDF**: `FORMAT_PDF` (`application/pdf`)
 - **PostScript**: `FORMAT_POSTSCRIPT` (`application/postscript`) 
 - **Plain Text**: `FORMAT_TEXT` (`text/plain`)
 - **JPEG Images**: `FORMAT_JPEG` (`image/jpeg`)
+- **Raw / Auto**: `application/octet-stream` (generic format, CUPS may auto-detect) 
 
 ## Error Types
 

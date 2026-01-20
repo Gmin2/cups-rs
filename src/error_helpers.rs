@@ -54,6 +54,7 @@ pub fn validate_document_format(format: &str, dest_name: &str) -> Result<(), Err
         "text/plain",
         "image/jpeg",
         "image/png",
+        "application/octet-stream",
     ];
 
     if !supported_formats.contains(&format) {

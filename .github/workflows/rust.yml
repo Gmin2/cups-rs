@@ -1,0 +1,108 @@
+name: Rust CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcups2-dev
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # - name: Format check
+      #   run: cargo fmt --all -- --check
+      #
+      # - name: Clippy
+      #   run: cargo clippy --all-targets -- -D warnings
+
+      - name: Tests
+        run: cargo test --all -- --nocapture
+
+  integration_lp_lpstat:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install CUPS + PDF backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcups2-dev cups cups-bsd printer-driver-cups-pdf
+          lpstat -t
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build examples
+        run: cargo build --examples
+
+      - name: Submit jobs (custom lp) + verify delivery (system lpstat)
+        run: |
+          set -euo pipefail
+
+          echo "hello" > sample.txt
+
+          out="$(./target/debug/examples/lp -d PDF sample.txt)"
+          echo "$out"
+          job="$(echo "$out" | sed -n 's/.*request id is \([^ ]*\).*/\1/p')"
+          test -n "$job"
+
+          ok=0
+          for _ in {1..20}; do
+            if lpstat -W completed -o PDF | grep -q "$job"; then ok=1; break; fi
+            sleep 1
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "job not marked completed: $job"
+            lpstat -W all -o PDF || true
+            exit 1
+          fi
+
+          out="$(echo "stdin" | ./target/debug/examples/lp -d PDF -)"
+          echo "$out"
+          job="$(echo "$out" | sed -n 's/.*request id is \([^ ]*\).*/\1/p')"
+          test -n "$job"
+
+          ok=0
+          for _ in {1..20}; do
+            if lpstat -W completed -o PDF | grep -q "$job"; then ok=1; break; fi
+            sleep 1
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo "job not marked completed: $job"
+            lpstat -W all -o PDF || true
+            exit 1
+          fi
+
+      - name: Compare lpstat outputs (system vs example)
+        run: |
+          set -euo pipefail
+
+          norm() {
+            sed -E \
+              -e 's/(PDF-)[0-9]+/\1ID/g' \
+              -e 's/[[:space:]]+$//' \
+              -e 's/[[:space:]]+/ /g'
+          }
+
+          filter_t() {
+            norm | grep -E \
+              '^(scheduler is (running|not running)$|system default destination: |no system default destination$|device for )' \
+              | sort
+          }
+
+          sys_t="$(lpstat -t | filter_t)"
+          ex_t="$(./target/debug/examples/lpstat -t | filter_t)"
+          diff -u <(echo "$sys_t") <(echo "$ex_t")
+
+          sys_o="$(lpstat -W all -o PDF | norm | awk '{print $1, $2, $3}')"
+          ex_o="$(./target/debug/examples/lpstat -W all -o PDF | norm | awk '{print $1, $2, $3}')"
+          diff -u <(echo "$sys_o") <(echo "$ex_o")
