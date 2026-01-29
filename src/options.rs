@@ -227,8 +227,8 @@ pub fn encode_options(
         let value_c = CString::new(value.as_str())?;
 
         cups_options.push(bindings::cups_option_s {
-            name: name_c.as_ptr() as *mut i8,
-            value: value_c.as_ptr() as *mut i8,
+            name: name_c.as_ptr() as *mut ::std::os::raw::c_char,
+            value: value_c.as_ptr() as *mut ::std::os::raw::c_char,
         });
 
         c_strings.push((name_c, value_c));
@@ -277,8 +277,8 @@ pub fn encode_options_with_group(
         let value_c = CString::new(value.as_str())?;
 
         cups_options.push(bindings::cups_option_s {
-            name: name_c.as_ptr() as *mut i8,
-            value: value_c.as_ptr() as *mut i8,
+            name: name_c.as_ptr() as *mut ::std::os::raw::c_char,
+            value: value_c.as_ptr() as *mut ::std::os::raw::c_char,
         });
 
         c_strings.push((name_c, value_c));
