@@ -10,6 +10,7 @@ use crate::bindings;
 use crate::constants;
 use crate::error::{Error, Result};
 use crate::error_helpers::cups_error_to_our_error;
+use crate::{HttpConnection, IppRequest, IppOperation, IppTag, IppValueTag};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
@@ -29,6 +30,19 @@ pub struct Destination {
     pub is_default: bool,
     /// Options and attributes for this destination
     pub options: HashMap<String, String>,
+}
+
+#[derive(Clone, Copy)]
+pub enum AttrKind {
+    StringLike,
+    IntegerLike,
+    Boolean,
+}
+
+#[derive(Clone, Copy)]
+pub struct AttrSpec<'a> {
+    pub name: &'a str,
+    pub kind: AttrKind,
 }
 
 impl Destination {
@@ -374,6 +388,82 @@ impl Destination {
 
         // Leak the box to keep the memory alive
         Box::into_raw(dest)
+    }
+
+    /// Fetch and populate missing attributes from the printer via IPP
+    ///
+    /// Note: The caller is responsible for passing an `HttpConnection` connected
+    /// to the correct CUPS server for this destination.
+    pub fn get_attrs(&mut self, conn: &HttpConnection, attrs: &[AttrSpec<'_>]) -> Result<()> {
+        let missing: Vec<AttrSpec<'_>> = attrs
+            .iter()
+            .copied()
+            .filter(|a| !self.options.contains_key(a.name))
+            .collect();
+        if missing.is_empty() {
+            return Ok(());
+        }
+
+        let uri = match self.options.get("printer-uri-supported") {
+            Some(u) => u.as_str(),
+            None => return Err(Error::UnsupportedFeature("printer-uri-supported missing".to_string())),
+        };
+
+        // Build GetPrinterAttributes
+        let mut req = IppRequest::new(IppOperation::GetPrinterAttributes)?;
+        req.add_string(IppTag::Operation, IppValueTag::Uri, "printer-uri", uri)?;
+
+        // requested-attributes by names
+        let names: Vec<&str> = missing.iter().map(|a| a.name).collect();
+        req.add_strings(
+            IppTag::Operation,
+            IppValueTag::Keyword,
+            "requested-attributes",
+            &names,
+        )?;
+
+        // Post to the specific printer resource path, not the scheduler root
+        let resource = uri
+            .strip_prefix("ipp://")
+            .or_else(|| uri.strip_prefix("ipps://"))
+            .and_then(|rest| rest.split_once('/').map(|(_, path)| format!("/{}", path)))
+            .ok_or_else(|| {
+                Error::UnsupportedFeature(format!("invalid printer-uri-supported: {uri}"))
+            })?;
+
+        let resp = req.send(conn, &resource)?;
+
+        for spec in missing {
+            let Some(attr) = resp.find_attribute(spec.name, None) else {
+                continue;
+            };
+
+            let mut vals: Vec<String> = Vec::new();
+            for i in 0..attr.count() {
+                match spec.kind {
+                    AttrKind::StringLike => {
+                        if let Some(s) = attr.get_string(i) {
+                            let s = s.trim().to_string();
+                            if !s.is_empty() {
+                                vals.push(s);
+                            }
+                        }
+                    }
+                    AttrKind::IntegerLike => {
+                        vals.push(attr.get_integer(i).to_string());
+                    }
+                    AttrKind::Boolean => {
+                        vals.push(if attr.get_boolean(i) { "true" } else { "false" }.to_string());
+                    }
+                }
+            }
+
+            if !vals.is_empty() {
+                self.options.insert(spec.name.to_string(), vals.join(","));
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -1058,5 +1148,76 @@ mod tests {
         assert_eq!(reasons.len(), 2);
         assert!(reasons.contains(&"media-tray-empty-error".to_string()));
         assert!(reasons.contains(&"toner-low-warning".to_string()));
+    }
+
+    #[test]
+    fn test_get_attrs_error_path() {
+        use crate::ConnectionFlags;
+        let mut dest = Destination {
+            name: "TestPrinter".to_string(),
+            instance: None,
+            is_default: false,
+            options: std::collections::HashMap::new(),
+        };
+
+        let printer = match get_default_destination() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        let conn = match printer.connect(ConnectionFlags::Scheduler, Some(5000), None) {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+
+        let attrs = vec![
+            AttrSpec {
+                name: "marker-levels",
+                kind: AttrKind::IntegerLike,
+            },
+        ];
+
+        let result = dest.get_attrs(&conn, &attrs);
+        assert!(result.is_err(), "Expected error due to missing printer-uri-supported");
+        
+        if let Err(crate::error::Error::UnsupportedFeature(msg)) = result {
+            assert_eq!(msg, "printer-uri-supported missing");
+        } else {
+            panic!("Expected UnsupportedFeature error, got {:?}", result);
+        }
+    }
+
+    #[test]
+    fn test_get_attrs_success_path() {
+        use crate::ConnectionFlags;
+        let mut printer = match get_default_destination() {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+        let conn = match printer.connect(ConnectionFlags::Scheduler, Some(5000), None) {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+
+        printer.options.remove("printer-is-accepting-jobs");
+
+        let attrs = vec![
+            AttrSpec {
+                name: "printer-is-accepting-jobs",
+                kind: AttrKind::Boolean,
+            },
+        ];
+
+        let result = printer.get_attrs(&conn, &attrs);
+        assert!(result.is_ok(), "get_attrs failed: {:?}", result);
+
+        let v = printer
+            .options
+            .get("printer-is-accepting-jobs")
+            .expect("attr was not populated");
+
+        assert!(
+            v == "true" || v == "false",
+            "expected boolean string, got {v}"
+        );
     }
 }
