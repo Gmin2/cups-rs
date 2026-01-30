@@ -376,7 +376,9 @@ impl IppRequest {
         let resource_c = CString::new(resource)?;
 
         // Note: cupsDoRequest frees the request, so we need to create a copy
-        let request_copy = unsafe { bindings::ippNew() };
+        // Create a new request with the same operation code as the original
+        let operation = unsafe { bindings::ippGetOperation(self.ipp) };
+        let request_copy = unsafe { bindings::ippNewRequest(operation) };
         if request_copy.is_null() {
             return Err(Error::UnsupportedFeature(
                 "Failed to copy IPP request".to_string(),
@@ -384,6 +386,7 @@ impl IppRequest {
         }
 
         unsafe {
+            // Copy all attributes from the original request to the new one
             bindings::ippCopyAttributes(request_copy, self.ipp, 0, None, ptr::null_mut());
         }
 
