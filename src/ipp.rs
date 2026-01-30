@@ -376,6 +376,7 @@ impl IppRequest {
         let resource_c = CString::new(resource)?;
 
         // Note: cupsDoRequest frees the request, so we need to create a copy
+        // create an empty IPP message for the outgoing copy
         let request_copy = unsafe { bindings::ippNew() };
         if request_copy.is_null() {
             return Err(Error::UnsupportedFeature(
@@ -384,6 +385,11 @@ impl IppRequest {
         }
 
         unsafe {
+            // Copy request header fields
+            bindings::ippSetOperation(request_copy, bindings::ippGetOperation(self.ipp));
+            bindings::ippSetRequestId(request_copy, bindings::ippGetRequestId(self.ipp));
+
+            // Copy all attributes
             bindings::ippCopyAttributes(request_copy, self.ipp, 0, None, ptr::null_mut());
         }
 
@@ -594,5 +600,56 @@ mod tests {
         assert!(IppStatus::OkIgnoredOrSubstituted.is_successful());
         assert!(!IppStatus::ErrorBadRequest.is_successful());
         assert!(!IppStatus::ErrorNotFound.is_successful());
+    }
+
+    #[test]
+    fn test_ipp_request_send_preserves_operation() {
+        use crate::{get_default_destination, ConnectionFlags};
+
+        // Skip test if no CUPS server
+        let printer = match get_default_destination() {
+            Ok(p) => p,
+            Err(_) => return, 
+        };
+
+        // Skip test if connection fails
+        let connection = match printer.connect(ConnectionFlags::Scheduler, Some(5000), None) {
+            Ok(c) => c,
+            Err(_) => return, 
+        };
+
+        // Create a GetPrinterAttributes request
+        let mut request = IppRequest::new(IppOperation::GetPrinterAttributes).unwrap();
+        
+        // Use the actual printer URI if available, otherwise fallback to a plausible one
+        let uri = printer.uri().cloned().unwrap_or_else(|| "ipp://localhost/printers/default".to_string());
+        
+        // Add minimal required attributes
+        request.add_string(
+            IppTag::Operation,
+            IppValueTag::Uri,
+            "printer-uri",
+            &uri,
+        ).unwrap();
+
+        // Post to the specific printer resource path, not the scheduler root
+        let resource = uri
+            .strip_prefix("ipp://")
+            .or_else(|| uri.strip_prefix("ipps://"))
+            .and_then(|rest| rest.split_once('/').map(|(_, path)| format!("/{}", path)))
+            .unwrap_or_else(|| "/".to_string());
+
+        // Send the request
+        let response = request.send(&connection, &resource);
+        
+        // If the operation code was LOST (became 0), CUPS returns ErrorBadRequest (0x0400).
+        // Since we preserved it, this should return a successful response or another error.
+        if let Ok(resp) = response {
+            assert_ne!(
+                resp.status(),
+                IppStatus::ErrorBadRequest,
+                "Operation code was lost in send() copy"
+            );
+        }
     }
 }
