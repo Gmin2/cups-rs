@@ -84,6 +84,7 @@ pub enum IppValueTag {
     Charset,
     Language,
     MimeType,
+    DeleteAttr,
 }
 
 impl From<IppValueTag> for bindings::ipp_tag_t {
@@ -100,6 +101,7 @@ impl From<IppValueTag> for bindings::ipp_tag_t {
             IppValueTag::Charset => bindings::ipp_tag_e_IPP_TAG_CHARSET,
             IppValueTag::Language => bindings::ipp_tag_e_IPP_TAG_LANGUAGE,
             IppValueTag::MimeType => bindings::ipp_tag_e_IPP_TAG_MIMETYPE,
+            IppValueTag::DeleteAttr => bindings::ipp_tag_e_IPP_TAG_DELETEATTR,
         }
     }
 }
