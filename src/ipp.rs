@@ -33,6 +33,7 @@
 use crate::bindings;
 use crate::connection::HttpConnection;
 use crate::error::{Error, Result};
+use std::env;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::ptr;
@@ -83,6 +84,7 @@ pub enum IppValueTag {
     Charset,
     Language,
     MimeType,
+    DeleteAttr,
 }
 
 impl From<IppValueTag> for bindings::ipp_tag_t {
@@ -99,6 +101,7 @@ impl From<IppValueTag> for bindings::ipp_tag_t {
             IppValueTag::Charset => bindings::ipp_tag_e_IPP_TAG_CHARSET,
             IppValueTag::Language => bindings::ipp_tag_e_IPP_TAG_LANGUAGE,
             IppValueTag::MimeType => bindings::ipp_tag_e_IPP_TAG_MIMETYPE,
+            IppValueTag::DeleteAttr => bindings::ipp_tag_e_IPP_TAG_DELETEATTR,
         }
     }
 }
@@ -248,6 +251,23 @@ impl IppRequest {
         })
     }
 
+    /// Create a new IPP request from a raw operation code.
+    /// This is useful for deprecated operations.
+    pub fn new_raw(op_code: i32) -> Result<Self> {
+        let ipp = unsafe { bindings::ippNewRequest(op_code) };
+
+        if ipp.is_null() {
+            return Err(Error::UnsupportedFeature(
+                "Failed to create IPP request".to_string(),
+            ));
+        }
+
+        Ok(IppRequest {
+            ipp,
+            _phantom: PhantomData,
+        })
+    }
+
     /// Get the raw pointer to the ipp_t structure
     pub fn as_ptr(&self) -> *mut bindings::_ipp_s {
         self.ipp
@@ -369,6 +389,35 @@ impl IppRequest {
         } else {
             Ok(())
         }
+    }
+
+    /// Add standard IPP operation attributes:
+    /// - attributes-charset = "utf-8"
+    /// - attributes-natural-language = "en"
+    /// - requesting-user-name = $USER (or "unknown")
+    pub fn add_standard_attrs(&mut self) -> Result<()> {
+        let user = env::var("USER").unwrap_or_else(|_| "unknown".into());
+
+        self.add_string(
+            IppTag::Operation,
+            IppValueTag::Charset,
+            "attributes-charset",
+            "utf-8",
+        )?;
+        self.add_string(
+            IppTag::Operation,
+            IppValueTag::Language,
+            "attributes-natural-language",
+            "en",
+        )?;
+        self.add_string(
+            IppTag::Operation,
+            IppValueTag::Name,
+            "requesting-user-name",
+            &user,
+        )?;
+
+        Ok(())
     }
 
     /// Send this request and receive a response
@@ -585,6 +634,13 @@ mod tests {
     fn test_ipp_add_boolean() {
         let mut request = IppRequest::new(IppOperation::GetJobs).unwrap();
         let result = request.add_boolean(IppTag::Operation, "my-jobs", true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_add_standard_attrs() {
+        let mut request = IppRequest::new(IppOperation::GetJobs).unwrap();
+        let result = request.add_standard_attrs();
         assert!(result.is_ok());
     }
 
