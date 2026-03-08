@@ -320,7 +320,7 @@ impl IppRequest {
         let name_c = CString::new(name)?;
 
         let attr = unsafe {
-            bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value as i8)
+            bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value as ::std::os::raw::c_char)
         };
 
         if attr.is_null() {
@@ -347,7 +347,7 @@ impl IppRequest {
             .map(|v| CString::new(*v).map_err(Error::from))
             .collect::<Result<Vec<_>>>()?;
 
-        let values_ptrs: Vec<*const i8> = values_c.iter().map(|s| s.as_ptr()).collect();
+        let values_ptrs: Vec<*const ::std::os::raw::c_char> = values_c.iter().map(|s| s.as_ptr()).collect();
 
         let attr = unsafe {
             bindings::ippAddStrings(
