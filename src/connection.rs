@@ -96,15 +96,15 @@ impl Drop for HttpConnection {
 
 impl Destination {
     /// Connect to this destination
-    /// 
+    ///
     /// Opens a direct connection to the destination, which can be used for
     /// sending IPP requests directly to the printer or CUPS scheduler.
-    /// 
+    ///
     /// # Arguments
     /// * `flags` - Whether to connect to scheduler or device directly
     /// * `timeout_ms` - Connection timeout in milliseconds, None for indefinite
     /// * `cancel` - Optional cancellation flag
-    /// 
+    ///
     /// # Returns
     /// * `Ok((HttpConnection, String))` - Connection and resource path
     /// * `Err(Error)` - Connection failed
@@ -140,7 +140,7 @@ impl Destination {
                 cancel_ptr,
                 resource_buf.as_mut_ptr() as *mut ::std::os::raw::c_char,
                 RESOURCE_SIZE,
-                None, // No callback for now
+                None,            // No callback for now
                 ptr::null_mut(), // No user data
             )
         };
@@ -167,17 +167,17 @@ impl Destination {
     }
 
     /// Connect to this destination with a callback
-    /// 
+    ///
     /// Opens a connection with a callback function that can monitor the
     /// connection process and potentially cancel it.
-    /// 
+    ///
     /// # Arguments
     /// * `flags` - Whether to connect to scheduler or device directly
     /// * `timeout_ms` - Connection timeout in milliseconds, None for indefinite
     /// * `cancel` - Optional cancellation flag
     /// * `callback` - Callback function for connection monitoring
     /// * `user_data` - User data passed to callback
-    /// 
+    ///
     /// # Returns
     /// * `Ok(HttpConnection)` - Established connection
     /// * `Err(Error)` - Connection failed or was cancelled
@@ -283,15 +283,15 @@ unsafe extern "C" fn connect_dest_callback<T>(
 }
 
 /// Connect to a destination
-/// 
+///
 /// This is a convenience function that creates a connection to a destination.
-/// 
+///
 /// # Arguments
 /// * `dest` - Destination to connect to
 /// * `flags` - Connection flags
 /// * `timeout_ms` - Connection timeout in milliseconds, None for indefinite
 /// * `cancel` - Optional cancellation flag
-/// 
+///
 /// # Returns
 /// * `Ok(HttpConnection)` - Established connection
 /// * `Err(Error)` - Connection failed
@@ -325,8 +325,11 @@ mod tests {
                     Ok(conn) => {
                         assert!(conn.is_connected());
                         assert!(!conn.resource_path().is_empty());
-                        println!("Connected to '{}' with resource path: '{}'", 
-                                dest.name, conn.resource_path());
+                        println!(
+                            "Connected to '{}' with resource path: '{}'",
+                            dest.name,
+                            conn.resource_path()
+                        );
                     }
                     Err(e) => {
                         // Connection might fail in test environment, that's OK

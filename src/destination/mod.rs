@@ -490,21 +490,24 @@ impl Destinations {
     }
 
     /// Add a destination to the list of destinations
-    /// 
+    ///
     /// If the named destination already exists, the destination list is returned unchanged.
     /// Adding a new instance of a destination creates a copy of that destination's options.
-    /// 
+    ///
     /// # Arguments
     /// - `name`: Destination name
     /// - `instance`: Instance name or None for none/primary
-    /// 
+    ///
     /// # Returns
     /// - `Ok(())`: Destination added successfully
     /// - `Err(Error)`: Failed to add destination
     pub fn add_destination(&mut self, name: &str, instance: Option<&str>) -> Result<()> {
         let name_c = CString::new(name)?;
         let instance_c = instance.map(|i| CString::new(i)).transpose()?;
-        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+        let instance_ptr = instance_c
+            .as_ref()
+            .map(|c| c.as_ptr())
+            .unwrap_or(ptr::null());
 
         let new_num_dests = unsafe {
             bindings::cupsAddDest(
@@ -525,14 +528,14 @@ impl Destinations {
     }
 
     /// Remove a destination from the destination list
-    /// 
+    ///
     /// Removing a destination/instance does not delete the class or printer queue,
     /// merely the lpoptions for that destination/instance.
-    /// 
+    ///
     /// # Arguments
     /// - `name`: Destination name
     /// - `instance`: Instance name or None
-    /// 
+    ///
     /// # Returns
     /// - `Ok(true)`: Destination was found and removed
     /// - `Ok(false)`: Destination was not found
@@ -540,7 +543,10 @@ impl Destinations {
     pub fn remove_destination(&mut self, name: &str, instance: Option<&str>) -> Result<bool> {
         let name_c = CString::new(name)?;
         let instance_c = instance.map(|i| CString::new(i)).transpose()?;
-        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+        let instance_ptr = instance_c
+            .as_ref()
+            .map(|c| c.as_ptr())
+            .unwrap_or(ptr::null());
 
         let old_count = self.num_dests;
         let new_num_dests = unsafe {
@@ -557,38 +563,36 @@ impl Destinations {
     }
 
     /// Set the default destination
-    /// 
+    ///
     /// This marks one of the destinations in the list as the default destination.
-    /// 
+    ///
     /// # Arguments
     /// - `name`: Destination name
     /// - `instance`: Instance name or None
-    /// 
+    ///
     /// # Returns
     /// - `Ok(())`: Default destination set successfully
     /// - `Err(Error)`: Failed to set default destination
     pub fn set_default_destination(&mut self, name: &str, instance: Option<&str>) -> Result<()> {
         let name_c = CString::new(name)?;
         let instance_c = instance.map(|i| CString::new(i)).transpose()?;
-        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+        let instance_ptr = instance_c
+            .as_ref()
+            .map(|c| c.as_ptr())
+            .unwrap_or(ptr::null());
 
         unsafe {
-            bindings::cupsSetDefaultDest(
-                name_c.as_ptr(),
-                instance_ptr,
-                self.num_dests,
-                self.dests,
-            );
+            bindings::cupsSetDefaultDest(name_c.as_ptr(), instance_ptr, self.num_dests, self.dests);
         }
 
         Ok(())
     }
 
     /// Save the list of destinations to the user's lpoptions file
-    /// 
+    ///
     /// This saves the current destination list and their options to the user's
     /// lpoptions file for persistence across sessions.
-    /// 
+    ///
     /// # Returns
     /// - `Ok(())`: Destinations saved successfully
     /// - `Err(Error)`: Failed to save destinations
@@ -611,11 +615,11 @@ impl Destinations {
     }
 
     /// Find a destination by name and instance
-    /// 
+    ///
     /// # Arguments
     /// - `name`: Destination name to search for
     /// - `instance`: Instance name or None
-    /// 
+    ///
     /// # Returns
     /// - `Some(Destination)`: Found destination
     /// - `None`: Destination not found
@@ -625,15 +629,13 @@ impl Destinations {
             Err(_) => return None,
         };
         let instance_c = instance.and_then(|i| CString::new(i).ok());
-        let instance_ptr = instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+        let instance_ptr = instance_c
+            .as_ref()
+            .map(|c| c.as_ptr())
+            .unwrap_or(ptr::null());
 
         let dest_ptr = unsafe {
-            bindings::cupsGetDest(
-                name_c.as_ptr(),
-                instance_ptr,
-                self.num_dests,
-                self.dests,
-            )
+            bindings::cupsGetDest(name_c.as_ptr(), instance_ptr, self.num_dests, self.dests)
         };
 
         if dest_ptr.is_null() {
@@ -655,15 +657,15 @@ pub struct OptionConflict {
 
 impl DestinationInfo {
     /// Check for option conflicts and get resolutions for a new option/value pair
-    /// 
+    ///
     /// This function checks if adding a new option/value pair would conflict
     /// with existing options and provides resolutions if conflicts are found.
-    /// 
+    ///
     /// # Arguments
     /// - `current_options`: Current option/value pairs
     /// - `new_option`: The new option name to check
     /// - `new_value`: The new option value to check
-    /// 
+    ///
     /// # Returns
     /// - `Ok(None)`: No conflicts found
     /// - `Ok(Some(OptionConflict))`: Conflicts found with resolution
@@ -698,14 +700,21 @@ impl DestinationInfo {
 
         // Get destination pointer (we need to create one temporarily)
         let dest_name_c = CString::new(dest.name.as_str())?;
-        let dest_instance_c = dest.instance.as_ref().map(|i| CString::new(i.as_str())).transpose()?;
-        let dest_instance_ptr = dest_instance_c.as_ref().map(|c| c.as_ptr()).unwrap_or(ptr::null());
+        let dest_instance_c = dest
+            .instance
+            .as_ref()
+            .map(|i| CString::new(i.as_str()))
+            .transpose()?;
+        let dest_instance_ptr = dest_instance_c
+            .as_ref()
+            .map(|c| c.as_ptr())
+            .unwrap_or(ptr::null());
 
         let dest_ptr = unsafe {
             bindings::cupsGetDest(
                 dest_name_c.as_ptr(),
                 dest_instance_ptr,
-                1, // We just need a temporary dest
+                1,               // We just need a temporary dest
                 ptr::null_mut(), // Let CUPS find it
             )
         };
@@ -759,8 +768,10 @@ impl DestinationInfo {
                         unsafe {
                             let option = &*conflicts.offset(i as isize);
                             if !option.name.is_null() && !option.value.is_null() {
-                                let name = CStr::from_ptr(option.name).to_string_lossy().into_owned();
-                                let value = CStr::from_ptr(option.value).to_string_lossy().into_owned();
+                                let name =
+                                    CStr::from_ptr(option.name).to_string_lossy().into_owned();
+                                let value =
+                                    CStr::from_ptr(option.value).to_string_lossy().into_owned();
                                 conflicting_options.push((name, value));
                             }
                         }
@@ -773,8 +784,10 @@ impl DestinationInfo {
                         unsafe {
                             let option = &*resolved.offset(i as isize);
                             if !option.name.is_null() && !option.value.is_null() {
-                                let name = CStr::from_ptr(option.name).to_string_lossy().into_owned();
-                                let value = CStr::from_ptr(option.value).to_string_lossy().into_owned();
+                                let name =
+                                    CStr::from_ptr(option.name).to_string_lossy().into_owned();
+                                let value =
+                                    CStr::from_ptr(option.value).to_string_lossy().into_owned();
                                 resolved_options.push((name, value));
                             }
                         }
@@ -982,7 +995,7 @@ pub fn find_destinations(type_filter: u32, mask: u32) -> Result<Vec<Destination>
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_destination_creation() {
         let mut options = std::collections::HashMap::new();
@@ -1020,7 +1033,7 @@ mod tests {
     #[test]
     fn test_destination_state_parsing() {
         let mut options = std::collections::HashMap::new();
-        
+
         // Test different printer states
         options.insert("printer-state".to_string(), "4".to_string());
         let dest = Destination {
@@ -1044,9 +1057,11 @@ mod tests {
     #[test]
     fn test_destination_state_reasons() {
         let mut options = std::collections::HashMap::new();
-        options.insert("printer-state-reasons".to_string(), 
-                      "media-tray-empty-error,toner-low-warning".to_string());
-        
+        options.insert(
+            "printer-state-reasons".to_string(),
+            "media-tray-empty-error,toner-low-warning".to_string(),
+        );
+
         let dest = Destination {
             name: "Test".to_string(),
             instance: None,

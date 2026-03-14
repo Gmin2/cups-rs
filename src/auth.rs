@@ -6,40 +6,40 @@ use std::ptr;
 use std::sync::Arc;
 
 /// Password callback function type
-/// 
+///
 /// This callback is called when CUPS needs authentication credentials.
-/// 
+///
 /// # Parameters
 /// - `prompt`: The authentication prompt string
 /// - `http_connection`: Optional HTTP connection (None for CUPS_HTTP_DEFAULT)
 /// - `method`: HTTP method ("GET", "POST", "PUT", etc.)
 /// - `resource`: The resource path being accessed
-/// 
+///
 /// # Returns
 /// - `Some(String)`: The password to use for authentication
 /// - `None`: Cancel authentication
 pub type PasswordCallback = dyn Fn(&str, Option<&str>, &str, &str) -> Option<String> + Send + Sync;
 
 /// Client certificate callback function type
-/// 
+///
 /// This callback is called when CUPS needs a client certificate for authentication.
-/// 
+///
 /// # Parameters
 /// - `server_name`: The server name requiring the certificate
-/// 
+///
 /// # Returns
 /// - `Some(Vec<u8>)`: The certificate data in DER format
 /// - `None`: No certificate available
 pub type ClientCertCallback = dyn Fn(&str) -> Option<Vec<u8>> + Send + Sync;
 
 /// Server certificate validation callback function type
-/// 
+///
 /// This callback is called to validate server certificates.
-/// 
+///
 /// # Parameters
 /// - `server_name`: The server name
 /// - `certificate`: The server certificate data in DER format
-/// 
+///
 /// # Returns
 /// - `true`: Accept the certificate
 /// - `false`: Reject the certificate
@@ -47,29 +47,29 @@ pub type ServerCertCallback = dyn Fn(&str, &[u8]) -> bool + Send + Sync;
 
 // Thread-local storage for authentication callbacks
 thread_local! {
-    static PASSWORD_CALLBACK: std::cell::RefCell<Option<Arc<PasswordCallback>>> = 
+    static PASSWORD_CALLBACK: std::cell::RefCell<Option<Arc<PasswordCallback>>> =
         const { std::cell::RefCell::new(None) };
-    static CLIENT_CERT_CALLBACK: std::cell::RefCell<Option<Arc<ClientCertCallback>>> = 
+    static CLIENT_CERT_CALLBACK: std::cell::RefCell<Option<Arc<ClientCertCallback>>> =
         const { std::cell::RefCell::new(None) };
-    static SERVER_CERT_CALLBACK: std::cell::RefCell<Option<Arc<ServerCertCallback>>> = 
+    static SERVER_CERT_CALLBACK: std::cell::RefCell<Option<Arc<ServerCertCallback>>> =
         const { std::cell::RefCell::new(None) };
 }
 
 /// Set a password callback for GUI applications
-/// 
+///
 /// This function sets a password callback that will be called whenever
 /// CUPS needs authentication credentials. The callback should prompt
 /// the user for a password and return it.
-/// 
+///
 /// Pass `None` to restore the default console-based authentication.
-/// 
+///
 /// # Arguments
 /// - `callback`: The password callback function, or None to restore default
-/// 
+///
 /// # Example
 /// ```rust
 /// use cups_rs::auth::set_password_callback;
-/// 
+///
 /// let result = set_password_callback(Some(Box::new(|prompt, _http, _method, _resource| {
 ///     println!("Authentication required: {}", prompt);
 ///     // In a real GUI app, show a password dialog here
@@ -79,7 +79,7 @@ thread_local! {
 /// ```
 pub fn set_password_callback(callback: Option<Box<PasswordCallback>>) -> Result<()> {
     let has_callback = callback.is_some();
-    
+
     PASSWORD_CALLBACK.with(|cb| {
         *cb.borrow_mut() = callback.map(|c| Arc::from(c));
     });
@@ -97,19 +97,19 @@ pub fn set_password_callback(callback: Option<Box<PasswordCallback>>) -> Result<
 }
 
 /// Set a client certificate callback for SSL/TLS authentication
-/// 
+///
 /// This function sets a callback that will be called when CUPS needs
 /// a client certificate for SSL/TLS authentication.
-/// 
+///
 /// Pass `None` to remove the current callback.
-/// 
+///
 /// # Arguments
 /// - `callback`: The client certificate callback function, or None to remove
-/// 
+///
 /// # Example
 /// ```rust
 /// use cups_rs::auth::set_client_cert_callback;
-/// 
+///
 /// let result = set_client_cert_callback(Some(Box::new(|server_name| {
 ///     println!("Certificate required for: {}", server_name);
 ///     // In a real app, load certificate from file or keystore
@@ -124,24 +124,24 @@ pub fn set_client_cert_callback(callback: Option<Box<ClientCertCallback>>) -> Re
 
     // Note: cupsSetClientCertCB might not be available in all CUPS versions
     // This is a placeholder for when the binding is available
-    
+
     Ok(())
 }
 
 /// Set a server certificate validation callback
-/// 
+///
 /// This function sets a callback that will be called to validate
 /// server certificates during SSL/TLS connections.
-/// 
+///
 /// Pass `None` to use default certificate validation.
-/// 
+///
 /// # Arguments
 /// - `callback`: The server certificate validation callback, or None for default
-/// 
+///
 /// # Example
 /// ```rust
 /// use cups_rs::auth::set_server_cert_callback;
-/// 
+///
 /// let result = set_server_cert_callback(Some(Box::new(|server_name, cert_data| {
 ///     println!("Validating certificate for: {}", server_name);
 ///     println!("Certificate size: {} bytes", cert_data.len());
@@ -157,21 +157,21 @@ pub fn set_server_cert_callback(callback: Option<Box<ServerCertCallback>>) -> Re
 
     // Note: cupsSetServerCertCB might not be available in all CUPS versions
     // This is a placeholder for when the binding is available
-    
+
     Ok(())
 }
 
 /// Get a password using the current password callback
-/// 
+///
 /// This function calls the current password callback to get a password
 /// for authentication. It's typically used internally by CUPS.
-/// 
+///
 /// # Arguments
 /// - `prompt`: The authentication prompt
 /// - `http`: Optional HTTP connection
 /// - `method`: HTTP method being used
 /// - `resource`: The resource being accessed
-/// 
+///
 /// # Returns
 /// - `Some(String)`: The password provided by the callback
 /// - `None`: No password callback set or user cancelled
@@ -192,13 +192,13 @@ pub fn get_password(
 }
 
 /// Get a client certificate using the current callback
-/// 
+///
 /// This function calls the current client certificate callback to get
 /// a certificate for SSL/TLS authentication.
-/// 
+///
 /// # Arguments
 /// - `server_name`: The server name requiring the certificate
-/// 
+///
 /// # Returns
 /// - `Some(Vec<u8>)`: The certificate data in DER format
 /// - `None`: No certificate callback set or no certificate available
@@ -214,14 +214,14 @@ pub fn get_client_certificate(server_name: &str) -> Option<Vec<u8>> {
 }
 
 /// Validate a server certificate using the current callback
-/// 
+///
 /// This function calls the current server certificate validation callback
 /// to validate a server certificate.
-/// 
+///
 /// # Arguments
 /// - `server_name`: The server name
 /// - `certificate`: The certificate data in DER format
-/// 
+///
 /// # Returns
 /// - `true`: Certificate is valid/accepted
 /// - `false`: Certificate is invalid/rejected or no callback set
@@ -237,16 +237,16 @@ pub fn validate_server_certificate(server_name: &str, certificate: &[u8]) -> boo
 }
 
 /// Perform authentication for an HTTP request
-/// 
+///
 /// This function handles authentication for a specific HTTP request.
 /// It will call the password callback if needed and set up the
 /// appropriate authentication headers.
-/// 
+///
 /// # Arguments
 /// - `http_connection`: HTTP connection (use None for CUPS_HTTP_DEFAULT)
 /// - `method`: HTTP method ("GET", "POST", "PUT", etc.)
 /// - `resource`: The resource path
-/// 
+///
 /// # Returns
 /// - `Ok(())`: Authentication successful or not required
 /// - `Err(Error)`: Authentication failed
@@ -270,7 +270,8 @@ pub fn do_authentication(
         Ok(())
     } else {
         Err(Error::AuthenticationFailed(format!(
-            "Authentication failed for {} {}", method, resource
+            "Authentication failed for {} {}",
+            method, resource
         )))
     }
 }
@@ -353,7 +354,7 @@ mod tests {
         // Test client certificate callback
         let cert_data = vec![1, 2, 3, 4, 5];
         let cert_data_clone = cert_data.clone();
-        
+
         let result = set_client_cert_callback(Some(Box::new(move |server_name| {
             if server_name == "test.example.com" {
                 Some(cert_data_clone.clone())
@@ -387,13 +388,13 @@ mod tests {
         // Test removing callbacks
         let result = set_client_cert_callback(None);
         assert!(result.is_ok());
-        
+
         let no_cert = get_client_certificate("test.example.com");
         assert_eq!(no_cert, None);
 
         let result = set_server_cert_callback(None);
         assert!(result.is_ok());
-        
+
         let no_validation = validate_server_certificate("trusted.example.com", &[1, 2, 3]);
         assert!(!no_validation);
     }

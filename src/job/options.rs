@@ -155,7 +155,7 @@ mod tests {
 
         let cups_options = options.as_cups_options();
         assert_eq!(cups_options.len(), 6);
-        
+
         // checking all options are present or not
         let option_map: std::collections::HashMap<&str, &str> = cups_options.into_iter().collect();
         assert_eq!(option_map.get("copies"), Some(&"3"));
@@ -198,8 +198,14 @@ mod tests {
         assert_eq!(PrintQuality::High.to_string(), "5");
 
         assert_eq!(DuplexMode::OneSided.to_string(), "one-sided");
-        assert_eq!(DuplexMode::TwoSidedPortrait.to_string(), "two-sided-long-edge");
-        assert_eq!(DuplexMode::TwoSidedLandscape.to_string(), "two-sided-short-edge");
+        assert_eq!(
+            DuplexMode::TwoSidedPortrait.to_string(),
+            "two-sided-long-edge"
+        );
+        assert_eq!(
+            DuplexMode::TwoSidedLandscape.to_string(),
+            "two-sided-short-edge"
+        );
 
         assert_eq!(Orientation::Portrait.to_string(), "3");
         assert_eq!(Orientation::Landscape.to_string(), "4");
