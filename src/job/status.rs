@@ -76,26 +76,68 @@ mod tests {
     #[test]
     fn test_job_status_from_cups_state() {
         use crate::bindings::*;
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_PENDING as i32), JobStatus::Pending);
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_PROCESSING as i32), JobStatus::Processing);
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_COMPLETED as i32), JobStatus::Completed);
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_CANCELED as i32), JobStatus::Canceled);
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_ABORTED as i32), JobStatus::Aborted);
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_HELD as i32), JobStatus::Held);
-        assert_eq!(JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_STOPPED as i32), JobStatus::Stopped);
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_PENDING as i32),
+            JobStatus::Pending
+        );
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_PROCESSING as i32),
+            JobStatus::Processing
+        );
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_COMPLETED as i32),
+            JobStatus::Completed
+        );
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_CANCELED as i32),
+            JobStatus::Canceled
+        );
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_ABORTED as i32),
+            JobStatus::Aborted
+        );
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_HELD as i32),
+            JobStatus::Held
+        );
+        assert_eq!(
+            JobStatus::from_cups_state(ipp_jstate_e_IPP_JSTATE_STOPPED as i32),
+            JobStatus::Stopped
+        );
         assert_eq!(JobStatus::from_cups_state(999), JobStatus::Unknown);
     }
 
     #[test]
     fn test_job_status_to_cups_value() {
         use crate::bindings::*;
-        assert_eq!(JobStatus::Pending.to_cups_value(), ipp_jstate_e_IPP_JSTATE_PENDING as i32);
-        assert_eq!(JobStatus::Processing.to_cups_value(), ipp_jstate_e_IPP_JSTATE_PROCESSING as i32);
-        assert_eq!(JobStatus::Completed.to_cups_value(), ipp_jstate_e_IPP_JSTATE_COMPLETED as i32);
-        assert_eq!(JobStatus::Canceled.to_cups_value(), ipp_jstate_e_IPP_JSTATE_CANCELED as i32);
-        assert_eq!(JobStatus::Aborted.to_cups_value(), ipp_jstate_e_IPP_JSTATE_ABORTED as i32);
-        assert_eq!(JobStatus::Held.to_cups_value(), ipp_jstate_e_IPP_JSTATE_HELD as i32);
-        assert_eq!(JobStatus::Stopped.to_cups_value(), ipp_jstate_e_IPP_JSTATE_STOPPED as i32);
+        assert_eq!(
+            JobStatus::Pending.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_PENDING as i32
+        );
+        assert_eq!(
+            JobStatus::Processing.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_PROCESSING as i32
+        );
+        assert_eq!(
+            JobStatus::Completed.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_COMPLETED as i32
+        );
+        assert_eq!(
+            JobStatus::Canceled.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_CANCELED as i32
+        );
+        assert_eq!(
+            JobStatus::Aborted.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_ABORTED as i32
+        );
+        assert_eq!(
+            JobStatus::Held.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_HELD as i32
+        );
+        assert_eq!(
+            JobStatus::Stopped.to_cups_value(),
+            ipp_jstate_e_IPP_JSTATE_STOPPED as i32
+        );
         assert_eq!(JobStatus::Unknown.to_cups_value(), 0);
     }
 
