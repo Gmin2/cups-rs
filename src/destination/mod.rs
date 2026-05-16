@@ -10,6 +10,7 @@ use crate::bindings;
 use crate::constants;
 use crate::error::{Error, Result};
 use crate::error_helpers::cups_error_to_our_error;
+use crate::{HttpConnection, IppRequest, IppOperation, IppTag, IppValueTag};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
@@ -29,6 +30,19 @@ pub struct Destination {
     pub is_default: bool,
     /// Options and attributes for this destination
     pub options: HashMap<String, String>,
+}
+
+#[derive(Clone, Copy)]
+pub enum AttrKind {
+    StringLike,
+    IntegerLike,
+    Boolean,
+}
+
+#[derive(Clone, Copy)]
+pub struct AttrSpec<'a> {
+    pub name: &'a str,
+    pub kind: AttrKind,
 }
 
 impl Destination {
@@ -374,6 +388,82 @@ impl Destination {
 
         // Leak the box to keep the memory alive
         Box::into_raw(dest)
+    }
+
+    /// Fetch and populate missing attributes from the printer via IPP
+    ///
+    /// Note: The caller is responsible for passing an `HttpConnection` connected
+    /// to the correct CUPS server for this destination.
+    pub fn get_attrs(&mut self, conn: &HttpConnection, attrs: &[AttrSpec<'_>]) -> Result<()> {
+        let missing: Vec<AttrSpec<'_>> = attrs
+            .iter()
+            .copied()
+            .filter(|a| !self.options.contains_key(a.name))
+            .collect();
+        if missing.is_empty() {
+            return Ok(());
+        }
+
+        let uri = match self.options.get("printer-uri-supported") {
+            Some(u) => u.as_str(),
+            None => return Err(Error::UnsupportedFeature("printer-uri-supported missing".to_string())),
+        };
+
+        // Build GetPrinterAttributes
+        let mut req = IppRequest::new(IppOperation::GetPrinterAttributes)?;
+        req.add_string(IppTag::Operation, IppValueTag::Uri, "printer-uri", uri)?;
+
+        // requested-attributes by names
+        let names: Vec<&str> = missing.iter().map(|a| a.name).collect();
+        req.add_strings(
+            IppTag::Operation,
+            IppValueTag::Keyword,
+            "requested-attributes",
+            &names,
+        )?;
+
+        // Post to the specific printer resource path, not the scheduler root
+        let resource = uri
+            .strip_prefix("ipp://")
+            .or_else(|| uri.strip_prefix("ipps://"))
+            .and_then(|rest| rest.split_once('/').map(|(_, path)| format!("/{}", path)))
+            .ok_or_else(|| {
+                Error::UnsupportedFeature(format!("invalid printer-uri-supported: {uri}"))
+            })?;
+
+        let resp = req.send(conn, &resource)?;
+
+        for spec in missing {
+            let Some(attr) = resp.find_attribute(spec.name, None) else {
+                continue;
+            };
+
+            let mut vals: Vec<String> = Vec::new();
+            for i in 0..attr.count() {
+                match spec.kind {
+                    AttrKind::StringLike => {
+                        if let Some(s) = attr.get_string(i) {
+                            let s = s.trim().to_string();
+                            if !s.is_empty() {
+                                vals.push(s);
+                            }
+                        }
+                    }
+                    AttrKind::IntegerLike => {
+                        vals.push(attr.get_integer(i).to_string());
+                    }
+                    AttrKind::Boolean => {
+                        vals.push(if attr.get_boolean(i) { "true" } else { "false" }.to_string());
+                    }
+                }
+            }
+
+            if !vals.is_empty() {
+                self.options.insert(spec.name.to_string(), vals.join(","));
+            }
+        }
+
+        Ok(())
     }
 }
 
