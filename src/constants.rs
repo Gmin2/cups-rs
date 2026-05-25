@@ -1,31 +1,33 @@
 //! Constants for CUPS options and values
 
+use crate::bindings;
+
 // Destination flags
 pub const DEST_FLAGS_NONE: u32 = 0;
-pub const DEST_FLAGS_MORE: u32 = 1 << 0;
-pub const DEST_FLAGS_REMOVED: u32 = 1 << 1;
-pub const DEST_FLAGS_ERROR: u32 = 1 << 2;
-pub const DEST_FLAGS_DEVICE: u32 = 1 << 3;
+pub const DEST_FLAGS_MORE: u32 = bindings::CUPS_DEST_FLAGS_MORE;
+pub const DEST_FLAGS_REMOVED: u32 = bindings::CUPS_DEST_FLAGS_REMOVED;
+pub const DEST_FLAGS_ERROR: u32 = bindings::CUPS_DEST_FLAGS_ERROR;
+pub const DEST_FLAGS_DEVICE: u32 = bindings::CUPS_DEST_FLAGS_DEVICE;
 
 // Printer types
-pub const PRINTER_CLASS: u32 = 0x00000001;
-pub const PRINTER_FAX: u32 = 0x00000002;
-pub const PRINTER_LOCAL: u32 = 0;
-pub const PRINTER_REMOTE: u32 = 0x00000004;
-pub const PRINTER_DISCOVERED: u32 = 0x00000008;
-pub const PRINTER_BW: u32 = 0x00000010;
-pub const PRINTER_COLOR: u32 = 0x00000020;
-pub const PRINTER_DUPLEX: u32 = 0x00000040;
-pub const PRINTER_STAPLE: u32 = 0x00000080;
-pub const PRINTER_COLLATE: u32 = 0x00000100;
-pub const PRINTER_PUNCH: u32 = 0x00000200;
-pub const PRINTER_COVER: u32 = 0x00000400;
-pub const PRINTER_BIND: u32 = 0x00000800;
-pub const PRINTER_SORT: u32 = 0x00001000;
-pub const PRINTER_SMALL: u32 = 0x00002000;
-pub const PRINTER_MEDIUM: u32 = 0x00004000;
-pub const PRINTER_LARGE: u32 = 0x00008000;
-pub const PRINTER_VARIABLE: u32 = 0x00010000;
+pub const PRINTER_CLASS: u32 = bindings::cups_ptype_e_CUPS_PRINTER_CLASS;
+pub const PRINTER_FAX: u32 = bindings::cups_ptype_e_CUPS_PRINTER_FAX;
+pub const PRINTER_LOCAL: u32 = bindings::cups_ptype_e_CUPS_PRINTER_LOCAL;
+pub const PRINTER_REMOTE: u32 = bindings::cups_ptype_e_CUPS_PRINTER_REMOTE;
+pub const PRINTER_DISCOVERED: u32 = bindings::cups_ptype_e_CUPS_PRINTER_DISCOVERED;
+pub const PRINTER_BW: u32 = bindings::cups_ptype_e_CUPS_PRINTER_BW;
+pub const PRINTER_COLOR: u32 = bindings::cups_ptype_e_CUPS_PRINTER_COLOR;
+pub const PRINTER_DUPLEX: u32 = bindings::cups_ptype_e_CUPS_PRINTER_DUPLEX;
+pub const PRINTER_STAPLE: u32 = bindings::cups_ptype_e_CUPS_PRINTER_STAPLE;
+pub const PRINTER_COLLATE: u32 = bindings::cups_ptype_e_CUPS_PRINTER_COLLATE;
+pub const PRINTER_PUNCH: u32 = bindings::cups_ptype_e_CUPS_PRINTER_PUNCH;
+pub const PRINTER_COVER: u32 = bindings::cups_ptype_e_CUPS_PRINTER_COVER;
+pub const PRINTER_BIND: u32 = bindings::cups_ptype_e_CUPS_PRINTER_BIND;
+pub const PRINTER_SORT: u32 = bindings::cups_ptype_e_CUPS_PRINTER_SORT;
+pub const PRINTER_SMALL: u32 = bindings::cups_ptype_e_CUPS_PRINTER_SMALL;
+pub const PRINTER_MEDIUM: u32 = bindings::cups_ptype_e_CUPS_PRINTER_MEDIUM;
+pub const PRINTER_LARGE: u32 = bindings::cups_ptype_e_CUPS_PRINTER_LARGE;
+pub const PRINTER_VARIABLE: u32 = bindings::cups_ptype_e_CUPS_PRINTER_VARIABLE;
 
 // Media flags
 pub const MEDIA_FLAGS_DEFAULT: u32 = 0;
