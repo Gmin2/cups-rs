@@ -116,8 +116,13 @@ pub enum IppOperation {
     GetJobAttributes,
     GetJobs,
     GetPrinterAttributes,
+    HoldJob,
+    ReleaseJob,
     PausePrinter,
     ResumePrinter,
+    CupsAddModifyPrinter,
+    CupsDeletePrinter,
+    CupsSetDefault,
 }
 
 impl From<IppOperation> for bindings::ipp_op_t {
@@ -131,8 +136,13 @@ impl From<IppOperation> for bindings::ipp_op_t {
             IppOperation::GetJobAttributes => bindings::ipp_op_e_IPP_OP_GET_JOB_ATTRIBUTES,
             IppOperation::GetJobs => bindings::ipp_op_e_IPP_OP_GET_JOBS,
             IppOperation::GetPrinterAttributes => bindings::ipp_op_e_IPP_OP_GET_PRINTER_ATTRIBUTES,
+            IppOperation::HoldJob => bindings::ipp_op_e_IPP_OP_HOLD_JOB,
+            IppOperation::ReleaseJob => bindings::ipp_op_e_IPP_OP_RELEASE_JOB,
             IppOperation::PausePrinter => bindings::ipp_op_e_IPP_OP_PAUSE_PRINTER,
             IppOperation::ResumePrinter => bindings::ipp_op_e_IPP_OP_RESUME_PRINTER,
+            IppOperation::CupsAddModifyPrinter => bindings::ipp_op_e_IPP_OP_CUPS_ADD_MODIFY_PRINTER,
+            IppOperation::CupsDeletePrinter => bindings::ipp_op_e_IPP_OP_CUPS_DELETE_PRINTER,
+            IppOperation::CupsSetDefault => bindings::ipp_op_e_IPP_OP_CUPS_SET_DEFAULT,
         }
     }
 }
@@ -396,6 +406,38 @@ impl IppRequest {
         let response = unsafe {
             bindings::cupsDoRequest(connection.as_ptr(), request_copy, resource_c.as_ptr())
         };
+
+        if response.is_null() {
+            Err(Error::ServerError(
+                "No response received from server".to_string(),
+            ))
+        } else {
+            Ok(IppResponse {
+                ipp: response,
+                _phantom: PhantomData,
+            })
+        }
+    }
+
+    /// Send this request to the default CUPS scheduler connection.
+    pub fn send_default(&self, resource: &str) -> Result<IppResponse> {
+        let resource_c = CString::new(resource)?;
+
+        let request_copy = unsafe { bindings::ippNew() };
+        if request_copy.is_null() {
+            return Err(Error::UnsupportedFeature(
+                "Failed to copy IPP request".to_string(),
+            ));
+        }
+
+        unsafe {
+            bindings::ippSetOperation(request_copy, bindings::ippGetOperation(self.ipp));
+            bindings::ippSetRequestId(request_copy, bindings::ippGetRequestId(self.ipp));
+            bindings::ippCopyAttributes(request_copy, self.ipp, 0, None, ptr::null_mut());
+        }
+
+        let response =
+            unsafe { bindings::cupsDoRequest(ptr::null_mut(), request_copy, resource_c.as_ptr()) };
 
         if response.is_null() {
             Err(Error::ServerError(
