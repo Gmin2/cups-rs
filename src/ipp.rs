@@ -121,6 +121,7 @@ pub enum IppOperation {
     PausePrinter,
     ResumePrinter,
     CupsAddModifyPrinter,
+    CupsCreateLocalPrinter,
     CupsDeletePrinter,
     CupsSetDefault,
 }
@@ -141,6 +142,9 @@ impl From<IppOperation> for bindings::ipp_op_t {
             IppOperation::PausePrinter => bindings::ipp_op_e_IPP_OP_PAUSE_PRINTER,
             IppOperation::ResumePrinter => bindings::ipp_op_e_IPP_OP_RESUME_PRINTER,
             IppOperation::CupsAddModifyPrinter => bindings::ipp_op_e_IPP_OP_CUPS_ADD_MODIFY_PRINTER,
+            IppOperation::CupsCreateLocalPrinter => {
+                bindings::ipp_op_e_IPP_OP_CUPS_CREATE_LOCAL_PRINTER
+            }
             IppOperation::CupsDeletePrinter => bindings::ipp_op_e_IPP_OP_CUPS_DELETE_PRINTER,
             IppOperation::CupsSetDefault => bindings::ipp_op_e_IPP_OP_CUPS_SET_DEFAULT,
         }
