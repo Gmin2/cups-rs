@@ -174,21 +174,21 @@ pub mod job;
 /// - Get option values with type conversion
 pub mod options;
 
-pub use constants::*;
 pub use connection::{ConnectionFlags, HttpConnection, connect_to_destination};
+pub use constants::*;
 pub use destination::{
-    Destination, DestinationInfo, Destinations, MediaSize, PrinterState, OptionConflict, copy_dest,
+    Destination, DestinationInfo, Destinations, MediaSize, OptionConflict, PrinterState, copy_dest,
     enum_destinations, find_destinations, get_all_destinations, get_default_destination,
     get_destination, remove_dest,
 };
 pub use error::{Error, ErrorCategory, Result};
+pub use ipp::{
+    IppAttribute, IppOperation, IppRequest, IppResponse, IppStatus, IppTag, IppValueTag,
+};
 pub use job::{
     ColorMode, DuplexMode, FORMAT_JPEG, FORMAT_PDF, FORMAT_POSTSCRIPT, FORMAT_TEXT, JobInfo,
     JobStatus, Orientation, PrintOptions, PrintQuality, cancel_job, create_job,
     create_job_with_options, get_active_jobs, get_completed_jobs, get_job_info, get_jobs,
-};
-pub use ipp::{
-    IppAttribute, IppOperation, IppRequest, IppResponse, IppStatus, IppTag, IppValueTag,
 };
 pub use options::{
     add_integer_option, add_option, encode_option, encode_options, encode_options_with_group,

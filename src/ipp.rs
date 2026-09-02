@@ -169,24 +169,18 @@ impl IppStatus {
             bindings::ipp_status_e_IPP_STATUS_OK_IGNORED_OR_SUBSTITUTED => {
                 IppStatus::OkIgnoredOrSubstituted
             }
-            bindings::ipp_status_e_IPP_STATUS_OK_CONFLICTING => {
-                IppStatus::OkConflicting
-            }
+            bindings::ipp_status_e_IPP_STATUS_OK_CONFLICTING => IppStatus::OkConflicting,
             bindings::ipp_status_e_IPP_STATUS_ERROR_BAD_REQUEST => IppStatus::ErrorBadRequest,
             bindings::ipp_status_e_IPP_STATUS_ERROR_FORBIDDEN => IppStatus::ErrorForbidden,
             bindings::ipp_status_e_IPP_STATUS_ERROR_NOT_AUTHENTICATED => {
                 IppStatus::ErrorNotAuthenticated
             }
-            bindings::ipp_status_e_IPP_STATUS_ERROR_NOT_AUTHORIZED => {
-                IppStatus::ErrorNotAuthorized
-            }
+            bindings::ipp_status_e_IPP_STATUS_ERROR_NOT_AUTHORIZED => IppStatus::ErrorNotAuthorized,
             bindings::ipp_status_e_IPP_STATUS_ERROR_NOT_POSSIBLE => IppStatus::ErrorNotPossible,
             bindings::ipp_status_e_IPP_STATUS_ERROR_TIMEOUT => IppStatus::ErrorTimeout,
             bindings::ipp_status_e_IPP_STATUS_ERROR_NOT_FOUND => IppStatus::ErrorNotFound,
             bindings::ipp_status_e_IPP_STATUS_ERROR_GONE => IppStatus::ErrorGone,
-            bindings::ipp_status_e_IPP_STATUS_ERROR_REQUEST_ENTITY => {
-                IppStatus::ErrorRequestEntity
-            }
+            bindings::ipp_status_e_IPP_STATUS_ERROR_REQUEST_ENTITY => IppStatus::ErrorRequestEntity,
             bindings::ipp_status_e_IPP_STATUS_ERROR_REQUEST_VALUE => IppStatus::ErrorRequestValue,
             bindings::ipp_status_e_IPP_STATUS_ERROR_DOCUMENT_FORMAT_NOT_SUPPORTED => {
                 IppStatus::ErrorDocumentFormatNotSupported
@@ -320,7 +314,12 @@ impl IppRequest {
         let name_c = CString::new(name)?;
 
         let attr = unsafe {
-            bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value as ::std::os::raw::c_char)
+            bindings::ippAddBoolean(
+                self.ipp,
+                group.into(),
+                name_c.as_ptr(),
+                value as ::std::os::raw::c_char,
+            )
         };
 
         if attr.is_null() {
@@ -347,7 +346,8 @@ impl IppRequest {
             .map(|v| CString::new(*v).map_err(Error::from))
             .collect::<Result<Vec<_>>>()?;
 
-        let values_ptrs: Vec<*const ::std::os::raw::c_char> = values_c.iter().map(|s| s.as_ptr()).collect();
+        let values_ptrs: Vec<*const ::std::os::raw::c_char> =
+            values_c.iter().map(|s| s.as_ptr()).collect();
 
         let attr = unsafe {
             bindings::ippAddStrings(
@@ -470,11 +470,11 @@ impl IppResponse {
             Err(_) => return None,
         };
 
-        let group_tag = group.map(|g| g.into()).unwrap_or(bindings::ipp_tag_e_IPP_TAG_ZERO);
+        let group_tag = group
+            .map(|g| g.into())
+            .unwrap_or(bindings::ipp_tag_e_IPP_TAG_ZERO);
 
-        let attr = unsafe {
-            bindings::ippFindAttribute(self.ipp, name_c.as_ptr(), group_tag)
-        };
+        let attr = unsafe { bindings::ippFindAttribute(self.ipp, name_c.as_ptr(), group_tag) };
 
         if attr.is_null() {
             None

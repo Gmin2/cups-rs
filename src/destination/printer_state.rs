@@ -58,7 +58,10 @@ mod tests {
         assert_eq!(PrinterState::from_cups_state("3"), PrinterState::Idle);
         assert_eq!(PrinterState::from_cups_state("4"), PrinterState::Processing);
         assert_eq!(PrinterState::from_cups_state("5"), PrinterState::Stopped);
-        assert_eq!(PrinterState::from_cups_state("unknown"), PrinterState::Unknown);
+        assert_eq!(
+            PrinterState::from_cups_state("unknown"),
+            PrinterState::Unknown
+        );
     }
 
     #[test]

@@ -31,9 +31,8 @@ pub fn parse_options(arg: &str) -> Result<Vec<(String, String)>> {
     let mut num_options: c_int = 0;
     let mut options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
 
-    let result = unsafe {
-        bindings::cupsParseOptions(arg_c.as_ptr(), num_options, &mut options_ptr)
-    };
+    let result =
+        unsafe { bindings::cupsParseOptions(arg_c.as_ptr(), num_options, &mut options_ptr) };
 
     if result < 0 {
         return Err(Error::ConfigurationError(format!(
@@ -83,7 +82,11 @@ pub fn parse_options(arg: &str) -> Result<Vec<(String, String)>> {
 ///
 /// # Returns
 /// * Updated options vector with the new option added (or replaced if it existed)
-pub fn add_option(name: &str, value: &str, mut options: Vec<(String, String)>) -> Vec<(String, String)> {
+pub fn add_option(
+    name: &str,
+    value: &str,
+    mut options: Vec<(String, String)>,
+) -> Vec<(String, String)> {
     // Remove existing option with the same name
     options.retain(|(n, _)| n != name);
 
@@ -104,7 +107,11 @@ pub fn add_option(name: &str, value: &str, mut options: Vec<(String, String)>) -
 ///
 /// # Returns
 /// * Updated options vector with the new option added
-pub fn add_integer_option(name: &str, value: i32, options: Vec<(String, String)>) -> Vec<(String, String)> {
+pub fn add_integer_option(
+    name: &str,
+    value: i32,
+    options: Vec<(String, String)>,
+) -> Vec<(String, String)> {
     add_option(name, &value.to_string(), options)
 }
 
@@ -116,7 +123,10 @@ pub fn add_integer_option(name: &str, value: i32, options: Vec<(String, String)>
 ///
 /// # Returns
 /// * `(updated_options, was_removed)` - Updated vector and boolean indicating if option was found
-pub fn remove_option(name: &str, mut options: Vec<(String, String)>) -> (Vec<(String, String)>, bool) {
+pub fn remove_option(
+    name: &str,
+    mut options: Vec<(String, String)>,
+) -> (Vec<(String, String)>, bool) {
     let initial_len = options.len();
     options.retain(|(n, _)| n != name);
     let was_removed = options.len() < initial_len;
@@ -182,9 +192,8 @@ pub fn encode_option(
     let name_c = CString::new(name)?;
     let value_c = CString::new(value)?;
 
-    let attr = unsafe {
-        bindings::cupsEncodeOption(ipp, group_tag, name_c.as_ptr(), value_c.as_ptr())
-    };
+    let attr =
+        unsafe { bindings::cupsEncodeOption(ipp, group_tag, name_c.as_ptr(), value_c.as_ptr()) };
 
     if attr.is_null() {
         Err(Error::ConfigurationError(format!(
@@ -210,10 +219,7 @@ pub fn encode_option(
 /// # Returns
 /// * `Ok(())` - Options encoded successfully
 /// * `Err(Error)` - Encoding failed
-pub fn encode_options(
-    ipp: *mut bindings::_ipp_s,
-    options: &[(String, String)],
-) -> Result<()> {
+pub fn encode_options(ipp: *mut bindings::_ipp_s, options: &[(String, String)]) -> Result<()> {
     if ipp.is_null() {
         return Err(Error::NullPointer);
     }
@@ -235,11 +241,7 @@ pub fn encode_options(
     }
 
     unsafe {
-        bindings::cupsEncodeOptions(
-            ipp,
-            cups_options.len() as c_int,
-            cups_options.as_mut_ptr(),
-        );
+        bindings::cupsEncodeOptions(ipp, cups_options.len() as c_int, cups_options.as_mut_ptr());
     }
 
     Ok(())

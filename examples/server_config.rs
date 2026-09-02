@@ -1,9 +1,10 @@
 use cups_rs::{
+    Result,
     config::{
-        get_server, set_server, get_user, set_user, get_encryption, set_encryption,
-        get_user_agent, set_user_agent, CupsConfig, EncryptionMode,
+        CupsConfig, EncryptionMode, get_encryption, get_server, get_user, get_user_agent,
+        set_encryption, set_server, set_user, set_user_agent,
     },
-    get_all_destinations, Result,
+    get_all_destinations,
 };
 
 fn main() -> Result<()> {
@@ -17,7 +18,7 @@ fn main() -> Result<()> {
 
     // Test individual configuration functions
     println!("\n--- Testing Individual Configuration ---");
-    
+
     // Test server configuration
     println!("Setting server to 'print.example.com:8631'...");
     set_server(Some("print.example.com:8631"))?;
@@ -44,7 +45,7 @@ fn main() -> Result<()> {
     set_user(None)?;
     set_encryption(EncryptionMode::IfRequested);
     set_user_agent(None)?;
-    
+
     println!("Server restored to: {}", get_server());
     println!("User restored to: {}", get_user());
     println!("Encryption restored to: {:?}", get_encryption());
@@ -69,7 +70,10 @@ fn main() -> Result<()> {
         // Note: This will likely fail since scoped.example.com doesn't exist
         match get_all_destinations() {
             Ok(destinations) => {
-                println!("  Successfully connected! Found {} printers", destinations.len());
+                println!(
+                    "  Successfully connected! Found {} printers",
+                    destinations.len()
+                );
             }
             Err(e) => {
                 println!("  Expected connection failure: {}", e);
@@ -95,13 +99,13 @@ fn main() -> Result<()> {
         .with_user("developer")?
         .with_encryption(EncryptionMode::Never)
         .with_user_agent("DevApp/1.0-debug")?;
-    
+
     let dev_summary = _dev_config.current_config();
     println!("  {}", dev_summary);
 
     // The configuration will be automatically restored when _dev_config is dropped
     println!("\nServer configuration demo completed!");
     println!("Note: All configurations are thread-local in CUPS");
-    
+
     Ok(())
 }

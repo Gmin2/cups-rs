@@ -113,12 +113,13 @@ impl Error {
 
     pub fn error_category(&self) -> ErrorCategory {
         match self {
-            Error::ServerUnavailable | Error::NetworkError(_) | Error::Timeout | Error::ConnectionFailed(_) => {
-                ErrorCategory::Network
-            }
-            Error::AuthenticationRequired(_) | Error::AuthenticationFailed(_) | Error::PermissionDenied(_) => {
-                ErrorCategory::Authentication
-            }
+            Error::ServerUnavailable
+            | Error::NetworkError(_)
+            | Error::Timeout
+            | Error::ConnectionFailed(_) => ErrorCategory::Network,
+            Error::AuthenticationRequired(_)
+            | Error::AuthenticationFailed(_)
+            | Error::PermissionDenied(_) => ErrorCategory::Authentication,
             Error::PrinterOffline(_) | Error::PrinterNotAccepting(_, _) => ErrorCategory::Printer,
             Error::InvalidFormat(_, _) | Error::DocumentTooLarge(_, _) => ErrorCategory::Document,
             Error::JobCreationFailed(_) | Error::JobManagementFailed(_) => ErrorCategory::Job,
@@ -141,7 +142,9 @@ impl Error {
             }
             Error::DocumentTooLarge(_, _) => "Reduce document size or split into smaller files",
             Error::NetworkError(_) => "Check network connectivity to CUPS server",
-            Error::ConnectionFailed(_) => "Check if destination is reachable and CUPS service is running",
+            Error::ConnectionFailed(_) => {
+                "Check if destination is reachable and CUPS service is running"
+            }
             Error::Timeout => "Retry the operation or increase timeout value",
             Error::ConfigurationError(_) => "Check CUPS configuration files",
             _ => "Check CUPS logs for more details: sudo tail /var/log/cups/error_log",
