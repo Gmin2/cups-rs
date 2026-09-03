@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo dependencies
+        uses: Swatinem/rust-cache@v2 
+
+      - name: Install dependencies and setup CUPS (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcups2-dev cups
+          sudo service cups start
+          sudo lpadmin -p TestPrinter -E -v ipp://localhost/printer/TestPrinter -m everywhere
+          sudo cupsenable TestPrinter
+          sudo cupsaccept TestPrinter
+
+      - name: Install dependencies (macos)
+        if: matrix.os == 'macos-latest'
+        run: brew install cups
+
+      - name: Build
+        run: cargo build
+
+      - name: Test
+        run: cargo test
+
+        
+        
