@@ -1,7 +1,6 @@
 use crate::bindings;
 use crate::error::{Error, Result};
 use std::ffi::{CStr, CString};
-use std::os::raw::c_int;
 use std::ptr;
 
 /// Parse command-line style options into key-value pairs
@@ -28,18 +27,13 @@ use std::ptr;
 pub fn parse_options(arg: &str) -> Result<Vec<(String, String)>> {
     let arg_c = CString::new(arg)?;
 
-    let mut num_options: c_int = 0;
+    let mut num_options: usize = 0;
     let mut options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
+    let mut end_ptr: *const ::std::os::raw::c_char = ptr::null();
 
-    let result =
-        unsafe { bindings::cupsParseOptions(arg_c.as_ptr(), num_options, &mut options_ptr) };
-
-    if result < 0 {
-        return Err(Error::ConfigurationError(format!(
-            "Failed to parse options: '{}'",
-            arg
-        )));
-    }
+    let result = unsafe {
+        bindings::cupsParseOptions(arg_c.as_ptr(), &mut end_ptr, num_options, &mut options_ptr)
+    };
 
     num_options = result;
 
@@ -205,48 +199,6 @@ pub fn encode_option(
     }
 }
 
-/// Encode multiple options into IPP attributes
-///
-/// This function adds operation, job, and subscription attributes in that order.
-/// For group-specific encoding, use `encode_options_with_group`.
-///
-/// Note: This requires IPP support which is currently limited.
-///
-/// # Arguments
-/// * `ipp` - IPP request/response pointer
-/// * `options` - Options to encode
-///
-/// # Returns
-/// * `Ok(())` - Options encoded successfully
-/// * `Err(Error)` - Encoding failed
-pub fn encode_options(ipp: *mut bindings::_ipp_s, options: &[(String, String)]) -> Result<()> {
-    if ipp.is_null() {
-        return Err(Error::NullPointer);
-    }
-
-    // Convert to cups_option_t array
-    let mut cups_options: Vec<bindings::cups_option_s> = Vec::with_capacity(options.len());
-    let mut c_strings: Vec<(CString, CString)> = Vec::with_capacity(options.len());
-
-    for (name, value) in options {
-        let name_c = CString::new(name.as_str())?;
-        let value_c = CString::new(value.as_str())?;
-
-        cups_options.push(bindings::cups_option_s {
-            name: name_c.as_ptr() as *mut ::std::os::raw::c_char,
-            value: value_c.as_ptr() as *mut ::std::os::raw::c_char,
-        });
-
-        c_strings.push((name_c, value_c));
-    }
-
-    unsafe {
-        bindings::cupsEncodeOptions(ipp, cups_options.len() as c_int, cups_options.as_mut_ptr());
-    }
-
-    Ok(())
-}
-
 /// Encode multiple options into IPP attributes for a specific group
 ///
 /// This function only adds attributes for a single group tag.
@@ -287,9 +239,9 @@ pub fn encode_options_with_group(
     }
 
     unsafe {
-        bindings::cupsEncodeOptions2(
+        bindings::cupsEncodeOptions(
             ipp,
-            cups_options.len() as c_int,
+            cups_options.len(),
             cups_options.as_mut_ptr(),
             group_tag,
         );

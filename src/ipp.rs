@@ -313,14 +313,8 @@ impl IppRequest {
     pub fn add_boolean(&mut self, group: IppTag, name: &str, value: bool) -> Result<()> {
         let name_c = CString::new(name)?;
 
-        let attr = unsafe {
-            bindings::ippAddBoolean(
-                self.ipp,
-                group.into(),
-                name_c.as_ptr(),
-                value as ::std::os::raw::c_char,
-            )
-        };
+        let attr =
+            unsafe { bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value) };
 
         if attr.is_null() {
             Err(Error::UnsupportedFeature(format!(
@@ -355,7 +349,7 @@ impl IppRequest {
                 group.into(),
                 value_tag.into(),
                 name_c.as_ptr(),
-                values.len() as i32,
+                values.len(),
                 ptr::null(),
                 values_ptrs.as_ptr(),
             )
@@ -390,7 +384,7 @@ impl IppRequest {
             bindings::ippSetRequestId(request_copy, bindings::ippGetRequestId(self.ipp));
 
             // Copy all attributes
-            bindings::ippCopyAttributes(request_copy, self.ipp, 0, None, ptr::null_mut());
+            bindings::ippCopyAttributes(request_copy, self.ipp, false, None, ptr::null_mut());
         }
 
         let response = unsafe {
@@ -486,11 +480,11 @@ impl IppResponse {
     /// Get all attributes in the response
     pub fn attributes(&self) -> Vec<IppAttribute> {
         let mut attributes = Vec::new();
-        let mut attr = unsafe { bindings::ippFirstAttribute(self.ipp) };
+        let mut attr = unsafe { bindings::ippGetFirstAttribute(self.ipp) };
 
         while !attr.is_null() {
             attributes.push(IppAttribute { attr });
-            attr = unsafe { bindings::ippNextAttribute(self.ipp) };
+            attr = unsafe { bindings::ippGetNextAttribute(self.ipp) };
         }
 
         attributes
@@ -538,7 +532,7 @@ impl IppAttribute {
     /// Get a string value
     pub fn get_string(&self, index: usize) -> Option<String> {
         unsafe {
-            let value_ptr = bindings::ippGetString(self.attr, index as i32, ptr::null_mut());
+            let value_ptr = bindings::ippGetString(self.attr, index, ptr::null_mut());
             if value_ptr.is_null() {
                 None
             } else {
@@ -549,12 +543,12 @@ impl IppAttribute {
 
     /// Get an integer value
     pub fn get_integer(&self, index: usize) -> i32 {
-        unsafe { bindings::ippGetInteger(self.attr, index as i32) }
+        unsafe { bindings::ippGetInteger(self.attr, index) }
     }
 
     /// Get a boolean value
     pub fn get_boolean(&self, index: usize) -> bool {
-        unsafe { bindings::ippGetBoolean(self.attr, index as i32) != 0 }
+        unsafe { bindings::ippGetBoolean(self.attr, index) }
     }
 }
 
@@ -604,33 +598,33 @@ mod tests {
 
     #[test]
     fn test_ipp_request_send_preserves_operation() {
-        use crate::{get_default_destination, ConnectionFlags};
+        use crate::{ConnectionFlags, get_default_destination};
 
         // Skip test if no CUPS server
         let printer = match get_default_destination() {
             Ok(p) => p,
-            Err(_) => return, 
+            Err(_) => return,
         };
 
         // Skip test if connection fails
         let connection = match printer.connect(ConnectionFlags::Scheduler, Some(5000), None) {
             Ok(c) => c,
-            Err(_) => return, 
+            Err(_) => return,
         };
 
         // Create a GetPrinterAttributes request
         let mut request = IppRequest::new(IppOperation::GetPrinterAttributes).unwrap();
-        
+
         // Use the actual printer URI if available, otherwise fallback to a plausible one
-        let uri = printer.uri().cloned().unwrap_or_else(|| "ipp://localhost/printers/default".to_string());
-        
+        let uri = printer
+            .uri()
+            .cloned()
+            .unwrap_or_else(|| "ipp://localhost/printers/default".to_string());
+
         // Add minimal required attributes
-        request.add_string(
-            IppTag::Operation,
-            IppValueTag::Uri,
-            "printer-uri",
-            &uri,
-        ).unwrap();
+        request
+            .add_string(IppTag::Operation, IppValueTag::Uri, "printer-uri", &uri)
+            .unwrap();
 
         // Post to the specific printer resource path, not the scheduler root
         let resource = uri
@@ -641,7 +635,7 @@ mod tests {
 
         // Send the request
         let response = request.send(&connection, &resource);
-        
+
         // If the operation code was LOST (became 0), CUPS returns ErrorBadRequest (0x0400).
         // Since we preserved it, this should return a successful response or another error.
         if let Ok(resp) = response {

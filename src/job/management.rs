@@ -64,12 +64,9 @@ fn get_jobs_with_filter(dest_name: Option<&str>, which_jobs: i32) -> Result<Vec<
     };
 
     let mut jobs_ptr: *mut bindings::cups_job_s = ptr::null_mut();
-    let num_jobs =
-        unsafe { bindings::cupsGetJobs2(ptr::null_mut(), &mut jobs_ptr, dest_ptr, 0, which_jobs) };
-
-    if num_jobs < 0 {
-        return Ok(Vec::new());
-    }
+    let num_jobs = unsafe {
+        bindings::cupsGetJobs(ptr::null_mut(), &mut jobs_ptr, dest_ptr, false, which_jobs)
+    };
 
     if jobs_ptr.is_null() {
         return Ok(Vec::new());

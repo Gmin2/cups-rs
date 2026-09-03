@@ -191,6 +191,6 @@ pub use job::{
     create_job_with_options, get_active_jobs, get_completed_jobs, get_job_info, get_jobs,
 };
 pub use options::{
-    add_integer_option, add_option, encode_option, encode_options, encode_options_with_group,
-    get_integer_option, get_option, parse_options, remove_option,
+    add_integer_option, add_option, encode_option, encode_options_with_group, get_integer_option,
+    get_option, parse_options, remove_option,
 };

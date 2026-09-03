@@ -23,12 +23,12 @@ pub struct MediaSize {
 
 impl MediaSize {
     /// Create a MediaSize from a CUPS cups_size_t structure
-    pub(crate) unsafe fn from_cups_size(size: &bindings::cups_size_s) -> Result<Self> {
-        let name = if size.media[0] == 0 {
+    pub(crate) unsafe fn from_cups_media(media: &bindings::cups_media_s) -> Result<Self> {
+        let name = if media.media[0] == 0 {
             String::new()
         } else {
             unsafe {
-                CStr::from_ptr(size.media.as_ptr())
+                CStr::from_ptr(media.media.as_ptr())
                     .to_string_lossy()
                     .into_owned()
             }
@@ -36,12 +36,12 @@ impl MediaSize {
 
         Ok(MediaSize {
             name,
-            width: size.width,
-            length: size.length,
-            bottom: size.bottom,
-            left: size.left,
-            right: size.right,
-            top: size.top,
+            width: media.width,
+            length: media.length,
+            bottom: media.bottom,
+            left: media.left,
+            right: media.right,
+            top: media.top,
         })
     }
 

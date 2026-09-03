@@ -35,14 +35,8 @@ impl Job {
             Ok(())
         } else {
             let error_msg = unsafe {
-                let error_ptr = bindings::cupsLastErrorString();
-                if error_ptr.is_null() {
-                    "Unknown CUPS error".to_string()
-                } else {
-                    std::ffi::CStr::from_ptr(error_ptr)
-                        .to_string_lossy()
-                        .into_owned()
-                }
+                let error_code = bindings::cupsGetError();
+                format!("CUPS error {}", error_code)
             };
             Err(Error::JobManagementFailed(format!(
                 "Failed to close job {}: {}",
@@ -78,14 +72,8 @@ impl Job {
             Ok(())
         } else {
             let error_msg = unsafe {
-                let error_ptr = bindings::cupsLastErrorString();
-                if error_ptr.is_null() {
-                    "Unknown CUPS error".to_string()
-                } else {
-                    std::ffi::CStr::from_ptr(error_ptr)
-                        .to_string_lossy()
-                        .into_owned()
-                }
+                let error_code = bindings::cupsGetError();
+                format!("CUPS error {}", error_code)
             };
             Err(Error::JobManagementFailed(format!(
                 "Failed to cancel job {}: {}",

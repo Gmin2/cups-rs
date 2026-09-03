@@ -10,12 +10,13 @@ use crate::bindings;
 use crate::constants;
 use crate::error::{Error, Result};
 use crate::error_helpers::cups_error_to_our_error;
-use crate::{HttpConnection, IppRequest, IppOperation, IppTag, IppValueTag};
+use crate::{HttpConnection, IppOperation, IppRequest, IppTag, IppValueTag};
 use std::collections::HashMap;
 use std::ffi::{CStr, CString};
 use std::marker::PhantomData;
 use std::os::raw::{c_int, c_uint, c_void};
 use std::ptr;
+use std::usize;
 
 pub type DestCallback<T> = dyn FnMut(u32, &Destination, &mut T) -> bool;
 
@@ -91,7 +92,7 @@ impl Destination {
         Ok(Destination {
             name,
             instance,
-            is_default: dest.is_default != 0,
+            is_default: dest.is_default,
             options,
         })
     }
@@ -204,7 +205,7 @@ impl Destination {
                 Some(s) => s.into_raw(),
                 None => ptr::null_mut(),
             },
-            is_default: if self.is_default { 1 } else { 0 },
+            is_default: self.is_default,
             num_options,
             options: options_ptr,
         };
@@ -213,6 +214,7 @@ impl Destination {
             bindings::cupsCopyDestInfo(
                 http,
                 &dest as *const bindings::cups_dest_s as *mut bindings::cups_dest_s,
+                0,
             )
         };
 
@@ -294,7 +296,7 @@ impl Destination {
                         Some(s) => s.into_raw(),
                         None => ptr::null_mut(),
                     },
-                    is_default: if self.is_default { 1 } else { 0 },
+                    is_default: self.is_default,
                     num_options,
                     options: options_ptr,
                 };
@@ -381,7 +383,7 @@ impl Destination {
                 Some(s) => s.into_raw(),
                 None => ptr::null_mut(),
             },
-            is_default: if self.is_default { 1 } else { 0 },
+            is_default: self.is_default,
             num_options,
             options: options_ptr,
         });
@@ -406,7 +408,11 @@ impl Destination {
 
         let uri = match self.options.get("printer-uri-supported") {
             Some(u) => u.as_str(),
-            None => return Err(Error::UnsupportedFeature("printer-uri-supported missing".to_string())),
+            None => {
+                return Err(Error::UnsupportedFeature(
+                    "printer-uri-supported missing".to_string(),
+                ));
+            }
         };
 
         // Build GetPrinterAttributes
@@ -470,7 +476,7 @@ impl Destination {
 /// A collection of CUPS destinations with automatic cleanup
 pub struct Destinations {
     dests: *mut bindings::cups_dest_s,
-    num_dests: c_int,
+    num_dests: usize,
     _marker: PhantomData<bindings::cups_dest_s>,
 }
 
@@ -487,7 +493,7 @@ impl Destinations {
     /// Get all available destinations from the default CUPS server
     pub fn get_all() -> Result<Self> {
         let mut dests: *mut bindings::cups_dest_s = ptr::null_mut();
-        let num_dests = unsafe { bindings::cupsGetDests(&mut dests) };
+        let num_dests = unsafe { bindings::cupsGetDests(ptr::null_mut(), &mut dests) };
 
         if num_dests <= 0 || dests.is_null() {
             return Err(Error::DestinationListFailed);
@@ -532,7 +538,7 @@ impl Destinations {
         for i in 0..all_dests.num_dests as isize {
             unsafe {
                 let dest = &*(all_dests.dests.offset(i));
-                if dest.is_default != 0 {
+                if dest.is_default {
                     return Destination::from_raw(all_dests.dests.offset(i));
                 }
             }
@@ -575,7 +581,7 @@ impl Destinations {
     }
 
     /// Get number of destinations
-    pub fn count(&self) -> c_int {
+    pub fn count(&self) -> usize {
         self.num_dests
     }
 
@@ -688,14 +694,14 @@ impl Destinations {
     /// - `Err(Error)`: Failed to save destinations
     pub fn save_to_lpoptions(&self) -> Result<()> {
         let result = unsafe {
-            bindings::cupsSetDests2(
+            bindings::cupsSetDests(
                 ptr::null_mut(), // Use CUPS_HTTP_DEFAULT
                 self.num_dests,
                 self.dests,
             )
         };
 
-        if result == 0 {
+        if !result {
             Ok(())
         } else {
             Err(Error::ConfigurationError(
@@ -969,7 +975,7 @@ pub fn enum_destinations<T>(
         )
     };
 
-    if result == 0 {
+    if !result {
         Err(Error::EnumerationError(
             "Failed to enumerate destinations".to_string(),
         ))
@@ -989,7 +995,7 @@ unsafe extern "C" fn enum_dest_callback<T>(
     user_data: *mut c_void,
     flags: c_uint,
     dest_ptr: *mut bindings::cups_dest_s,
-) -> c_int {
+) -> bool {
     // Reconstruct our context
     let context = unsafe { &mut *(user_data as *mut EnumContext<T>) };
 
@@ -999,14 +1005,14 @@ unsafe extern "C" fn enum_dest_callback<T>(
             Ok(dest) => {
                 // Call the user's callback
                 if (context.callback)(flags, &dest, context.user_data) {
-                    1 // Continue enumeration
+                    true // Continue enumeration
                 } else {
-                    0 // Stop enumeration
+                    false // Stop enumeration
                 }
             }
             Err(e) => {
                 eprintln!("Warning: Failed to parse destination: {}", e);
-                1 // Continue enumeration despite error
+                true // Continue enumeration despite error
             }
         }
     }
@@ -1030,9 +1036,9 @@ pub fn get_default_destination() -> Result<Destination> {
 /// Copy a destination from one destination array to another
 pub fn copy_dest(
     dest: *const bindings::cups_dest_s,
-    num_dests: i32,
+    num_dests: usize,
     dests: *mut *mut bindings::cups_dest_s,
-) -> i32 {
+) -> usize {
     unsafe { bindings::cupsCopyDest(dest as *mut bindings::cups_dest_s, num_dests, dests) }
 }
 
@@ -1040,9 +1046,9 @@ pub fn copy_dest(
 pub fn remove_dest(
     name: &str,
     instance: Option<&str>,
-    num_dests: i32,
+    num_dests: usize,
     dests: *mut *mut bindings::cups_dest_s,
-) -> Result<i32> {
+) -> Result<usize> {
     let name_c = CString::new(name)?;
     let instance_c = match instance {
         Some(i) => Some(CString::new(i)?),

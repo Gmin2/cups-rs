@@ -4,15 +4,9 @@ use std::path::PathBuf;
 fn main() {
     println!("cargo:rerun-if-changed=wrapper.h");
 
-    match pkg_config::probe_library("cups") {
-        Ok(_) => println!("Found CUPS using pkg-config"),
-        Err(e) => {
-            println!("cargo:warning=Failed to find CUPS with pkg-config: {}", e);
-            println!("cargo:rustc-link-lib=cups");
-        }
-    }
+    let library = pkg_config::probe_library("cups3").expect("Failed to find cups3 with pkg-config");
 
-    let bindings = bindgen::Builder::default()
+    let mut builder = bindgen::Builder::default()
         .header("wrapper.h")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         // Allow CUPS types and functions
@@ -26,11 +20,14 @@ fn main() {
         // Allow IPP types and functions
         .allowlist_function("ipp.*")
         .allowlist_type("ipp_.*")
-        .allowlist_var("IPP_.*")
-        .generate()
-        .expect("Unable to generate bindings");
+        .allowlist_var("IPP_.*");
 
-    // Write the bindings to the $OUT_DIR/bindings.rs file
+    for include_path in library.include_paths {
+        builder = builder.clang_arg(format!("-I{}", include_path.display()));
+    }
+
+    let bindings = builder.generate().expect("Unable to generate bindings");
+
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("bindings.rs"))

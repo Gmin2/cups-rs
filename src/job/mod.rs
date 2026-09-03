@@ -147,7 +147,7 @@ impl Job {
                 format_c.as_ptr(),
                 num_options,
                 cups_options_ptr,
-                if last_document { 1 } else { 0 },
+                last_document,
             )
         };
 
