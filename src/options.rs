@@ -1,4 +1,5 @@
 use crate::bindings;
+use crate::compat::{CupsCount, count_to_usize};
 use crate::error::{Error, Result};
 use std::ffi::{CStr, CString};
 use std::ptr;
@@ -27,20 +28,35 @@ use std::ptr;
 pub fn parse_options(arg: &str) -> Result<Vec<(String, String)>> {
     let arg_c = CString::new(arg)?;
 
-    let mut num_options: usize = 0;
+    let mut num_options: CupsCount = 0;
     let mut options_ptr: *mut bindings::cups_option_s = ptr::null_mut();
+
+    #[cfg(cups3)]
     let mut end_ptr: *const ::std::os::raw::c_char = ptr::null();
 
+    #[cfg(cups3)]
     let result = unsafe {
         bindings::cupsParseOptions(arg_c.as_ptr(), &mut end_ptr, num_options, &mut options_ptr)
     };
 
+    #[cfg(cups2)]
+    let result =
+        unsafe { bindings::cupsParseOptions(arg_c.as_ptr(), num_options, &mut options_ptr) };
+
+    #[cfg(cups2)]
+    if result < 0 {
+        return Err(Error::ConfigurationError(format!(
+            "Failed to parse options: '{}'",
+            arg
+        )));
+    }
+
     num_options = result;
 
     // Convert the options array to a Vec
-    let mut parsed_options = Vec::with_capacity(num_options as usize);
+    let mut parsed_options = Vec::with_capacity(count_to_usize(num_options));
 
-    for i in 0..num_options {
+    for i in 0..count_to_usize(num_options) {
         unsafe {
             let option = options_ptr.offset(i as isize);
             if !(*option).name.is_null() && !(*option).value.is_null() {
@@ -199,6 +215,39 @@ pub fn encode_option(
     }
 }
 
+/// Encode multiple options into IPP attributes
+///
+/// This function uses the CUPS default option groups. For group-specific
+/// encoding, use `encode_options_with_group`.
+pub fn encode_options(ipp: *mut bindings::_ipp_s, options: &[(String, String)]) -> Result<()> {
+    if ipp.is_null() {
+        return Err(Error::NullPointer);
+    }
+
+    let (mut cups_options, _c_strings) = to_cups_options(options)?;
+
+    #[cfg(cups3)]
+    unsafe {
+        bindings::cupsEncodeOptions(
+            ipp,
+            cups_options.len(),
+            cups_options.as_mut_ptr(),
+            bindings::ipp_tag_e_IPP_TAG_ZERO,
+        );
+    }
+
+    #[cfg(cups2)]
+    unsafe {
+        bindings::cupsEncodeOptions(
+            ipp,
+            crate::compat::usize_to_count(cups_options.len()),
+            cups_options.as_mut_ptr(),
+        );
+    }
+
+    Ok(())
+}
+
 /// Encode multiple options into IPP attributes for a specific group
 ///
 /// This function only adds attributes for a single group tag.
@@ -222,9 +271,36 @@ pub fn encode_options_with_group(
         return Err(Error::NullPointer);
     }
 
-    // Convert to cups_option_t array
-    let mut cups_options: Vec<bindings::cups_option_s> = Vec::with_capacity(options.len());
-    let mut c_strings: Vec<(CString, CString)> = Vec::with_capacity(options.len());
+    let (mut cups_options, _c_strings) = to_cups_options(options)?;
+
+    #[cfg(cups3)]
+    unsafe {
+        bindings::cupsEncodeOptions(
+            ipp,
+            cups_options.len(),
+            cups_options.as_mut_ptr(),
+            group_tag,
+        );
+    }
+
+    #[cfg(cups2)]
+    unsafe {
+        bindings::cupsEncodeOptions2(
+            ipp,
+            crate::compat::usize_to_count(cups_options.len()),
+            cups_options.as_mut_ptr(),
+            group_tag,
+        );
+    }
+
+    Ok(())
+}
+
+fn to_cups_options(
+    options: &[(String, String)],
+) -> Result<(Vec<bindings::cups_option_s>, Vec<(CString, CString)>)> {
+    let mut cups_options = Vec::with_capacity(options.len());
+    let mut c_strings = Vec::with_capacity(options.len());
 
     for (name, value) in options {
         let name_c = CString::new(name.as_str())?;
@@ -238,16 +314,7 @@ pub fn encode_options_with_group(
         c_strings.push((name_c, value_c));
     }
 
-    unsafe {
-        bindings::cupsEncodeOptions(
-            ipp,
-            cups_options.len(),
-            cups_options.as_mut_ptr(),
-            group_tag,
-        );
-    }
-
-    Ok(())
+    Ok((cups_options, c_strings))
 }
 
 #[cfg(test)]

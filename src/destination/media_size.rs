@@ -1,4 +1,4 @@
-use crate::bindings;
+use crate::compat::CupsMedia;
 use crate::error::Result;
 use std::ffi::CStr;
 
@@ -22,8 +22,8 @@ pub struct MediaSize {
 }
 
 impl MediaSize {
-    /// Create a MediaSize from a CUPS cups_size_t structure
-    pub(crate) unsafe fn from_cups_media(media: &bindings::cups_media_s) -> Result<Self> {
+    /// Create a MediaSize from a CUPS media structure
+    pub(crate) unsafe fn from_cups_media(media: &CupsMedia) -> Result<Self> {
         let name = if media.media[0] == 0 {
             String::new()
         } else {

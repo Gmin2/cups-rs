@@ -52,7 +52,12 @@ impl Into<bindings::http_encryption_e> for EncryptionMode {
 /// - Default server if none has been set
 pub fn get_server() -> String {
     unsafe {
+        #[cfg(cups3)]
         let server_ptr = bindings::cupsGetServer();
+
+        #[cfg(cups2)]
+        let server_ptr = bindings::cupsServer();
+
         if server_ptr.is_null() {
             "localhost".to_string() // Default fallback
         } else {
@@ -116,7 +121,12 @@ pub fn set_server(server: Option<&str>) -> Result<()> {
 /// - System username if none has been set
 pub fn get_user() -> String {
     unsafe {
+        #[cfg(cups3)]
         let user_ptr = bindings::cupsGetUser();
+
+        #[cfg(cups2)]
+        let user_ptr = bindings::cupsUser();
+
         if user_ptr.is_null() {
             std::env::var("USER")
                 .or_else(|_| std::env::var("USERNAME"))
@@ -177,7 +187,12 @@ pub fn set_user(user: Option<&str>) -> Result<()> {
 /// - Current encryption mode
 pub fn get_encryption() -> EncryptionMode {
     unsafe {
+        #[cfg(cups3)]
         let encryption = bindings::cupsGetEncryption();
+
+        #[cfg(cups2)]
+        let encryption = bindings::cupsEncryption();
+
         EncryptionMode::from(encryption)
     }
 }
@@ -216,7 +231,12 @@ pub fn set_encryption(mode: EncryptionMode) {
 /// - Default CUPS User-Agent if none has been set
 pub fn get_user_agent() -> String {
     unsafe {
+        #[cfg(cups3)]
         let agent_ptr = bindings::cupsGetUserAgent();
+
+        #[cfg(cups2)]
+        let agent_ptr = bindings::cupsUserAgent();
+
         if agent_ptr.is_null() {
             format!("CUPS/2.4 (cups-rs/{})", env!("CARGO_PKG_VERSION"))
         } else {

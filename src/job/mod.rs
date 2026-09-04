@@ -137,6 +137,12 @@ impl Job {
             }
         }
 
+        #[cfg(cups3)]
+        let last_document_arg = last_document;
+
+        #[cfg(cups2)]
+        let last_document_arg = if last_document { 1 } else { 0 };
+
         let status = unsafe {
             bindings::cupsStartDestDocument(
                 ptr::null_mut(),
@@ -147,7 +153,7 @@ impl Job {
                 format_c.as_ptr(),
                 num_options,
                 cups_options_ptr,
-                last_document,
+                last_document_arg,
             )
         };
 

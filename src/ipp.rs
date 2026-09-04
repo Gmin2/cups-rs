@@ -31,6 +31,7 @@
 //! ```
 
 use crate::bindings;
+use crate::compat::{count_to_usize, usize_to_count};
 use crate::connection::HttpConnection;
 use crate::error::{Error, Result};
 use std::ffi::{CStr, CString};
@@ -313,8 +314,19 @@ impl IppRequest {
     pub fn add_boolean(&mut self, group: IppTag, name: &str, value: bool) -> Result<()> {
         let name_c = CString::new(name)?;
 
+        #[cfg(cups3)]
         let attr =
             unsafe { bindings::ippAddBoolean(self.ipp, group.into(), name_c.as_ptr(), value) };
+
+        #[cfg(cups2)]
+        let attr = unsafe {
+            bindings::ippAddBoolean(
+                self.ipp,
+                group.into(),
+                name_c.as_ptr(),
+                if value { 1 } else { 0 },
+            )
+        };
 
         if attr.is_null() {
             Err(Error::UnsupportedFeature(format!(
@@ -349,7 +361,7 @@ impl IppRequest {
                 group.into(),
                 value_tag.into(),
                 name_c.as_ptr(),
-                values.len(),
+                usize_to_count(values.len()),
                 ptr::null(),
                 values_ptrs.as_ptr(),
             )
@@ -384,7 +396,11 @@ impl IppRequest {
             bindings::ippSetRequestId(request_copy, bindings::ippGetRequestId(self.ipp));
 
             // Copy all attributes
+            #[cfg(cups3)]
             bindings::ippCopyAttributes(request_copy, self.ipp, false, None, ptr::null_mut());
+
+            #[cfg(cups2)]
+            bindings::ippCopyAttributes(request_copy, self.ipp, 0, None, ptr::null_mut());
         }
 
         let response = unsafe {
@@ -480,11 +496,25 @@ impl IppResponse {
     /// Get all attributes in the response
     pub fn attributes(&self) -> Vec<IppAttribute> {
         let mut attributes = Vec::new();
+
+        #[cfg(cups3)]
         let mut attr = unsafe { bindings::ippGetFirstAttribute(self.ipp) };
+
+        #[cfg(cups2)]
+        let mut attr = unsafe { bindings::ippFirstAttribute(self.ipp) };
 
         while !attr.is_null() {
             attributes.push(IppAttribute { attr });
-            attr = unsafe { bindings::ippGetNextAttribute(self.ipp) };
+
+            #[cfg(cups3)]
+            {
+                attr = unsafe { bindings::ippGetNextAttribute(self.ipp) };
+            }
+
+            #[cfg(cups2)]
+            {
+                attr = unsafe { bindings::ippNextAttribute(self.ipp) };
+            }
         }
 
         attributes
@@ -526,13 +556,14 @@ impl IppAttribute {
 
     /// Get the number of values
     pub fn count(&self) -> usize {
-        unsafe { bindings::ippGetCount(self.attr) as usize }
+        count_to_usize(unsafe { bindings::ippGetCount(self.attr) })
     }
 
     /// Get a string value
     pub fn get_string(&self, index: usize) -> Option<String> {
         unsafe {
-            let value_ptr = bindings::ippGetString(self.attr, index, ptr::null_mut());
+            let value_ptr =
+                bindings::ippGetString(self.attr, usize_to_count(index), ptr::null_mut());
             if value_ptr.is_null() {
                 None
             } else {
@@ -543,12 +574,22 @@ impl IppAttribute {
 
     /// Get an integer value
     pub fn get_integer(&self, index: usize) -> i32 {
-        unsafe { bindings::ippGetInteger(self.attr, index) }
+        unsafe { bindings::ippGetInteger(self.attr, usize_to_count(index)) }
     }
 
     /// Get a boolean value
     pub fn get_boolean(&self, index: usize) -> bool {
-        unsafe { bindings::ippGetBoolean(self.attr, index) }
+        let value = unsafe { bindings::ippGetBoolean(self.attr, usize_to_count(index)) };
+
+        #[cfg(cups3)]
+        {
+            value
+        }
+
+        #[cfg(cups2)]
+        {
+            value != 0
+        }
     }
 }
 

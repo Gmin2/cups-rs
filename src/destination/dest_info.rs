@@ -1,4 +1,5 @@
 use crate::bindings;
+use crate::compat::{count_to_usize, cups_bool, empty_media, usize_to_count};
 use crate::destination::media_size::MediaSize;
 use crate::error::{Error, Result};
 use std::ffi::{CStr, CString};
@@ -41,8 +42,15 @@ impl DestinationInfo {
             Err(_) => return false,
         };
 
+        #[cfg(cups3)]
         unsafe {
             bindings::cupsCheckDestSupported(http, dest, self.dinfo, option_c.as_ptr(), ptr::null())
+        }
+
+        #[cfg(cups2)]
+        unsafe {
+            bindings::cupsCheckDestSupported(http, dest, self.dinfo, option_c.as_ptr(), ptr::null())
+                != 0
         }
     }
 
@@ -64,6 +72,7 @@ impl DestinationInfo {
             Err(_) => return false,
         };
 
+        #[cfg(cups3)]
         unsafe {
             bindings::cupsCheckDestSupported(
                 http,
@@ -72,6 +81,17 @@ impl DestinationInfo {
                 option_c.as_ptr(),
                 value_c.as_ptr(),
             )
+        }
+
+        #[cfg(cups2)]
+        unsafe {
+            bindings::cupsCheckDestSupported(
+                http,
+                dest,
+                self.dinfo,
+                option_c.as_ptr(),
+                value_c.as_ptr(),
+            ) != 0
         }
     }
 
@@ -84,7 +104,7 @@ impl DestinationInfo {
         flags: u32,
     ) -> Result<MediaSize> {
         let media_c = CString::new(media)?;
-        let mut media_info: bindings::cups_media_s = unsafe { std::mem::zeroed() };
+        let mut media_info = empty_media();
 
         let result = unsafe {
             bindings::cupsGetDestMediaByName(
@@ -97,7 +117,7 @@ impl DestinationInfo {
             )
         };
 
-        if result {
+        if !cups_bool(result) {
             Err(Error::MediaSizeError(format!(
                 "Media '{}' not found",
                 media
@@ -116,7 +136,7 @@ impl DestinationInfo {
         length: i32,
         flags: u32,
     ) -> Result<MediaSize> {
-        let mut media_info: bindings::cups_media_s = unsafe { std::mem::zeroed() };
+        let mut media_info = empty_media();
 
         let result = unsafe {
             bindings::cupsGetDestMediaBySize(
@@ -130,7 +150,7 @@ impl DestinationInfo {
             )
         };
 
-        if result {
+        if !cups_bool(result) {
             Err(Error::MediaSizeError(format!(
                 "Media with width={} and length={} not found",
                 width, length
@@ -148,13 +168,20 @@ impl DestinationInfo {
         index: usize,
         flags: u32,
     ) -> Result<MediaSize> {
-        let mut media_info: bindings::cups_media_s = unsafe { std::mem::zeroed() };
+        let mut media_info = empty_media();
 
         let result = unsafe {
-            bindings::cupsGetDestMediaByIndex(http, dest, self.dinfo, index, flags, &mut media_info)
+            bindings::cupsGetDestMediaByIndex(
+                http,
+                dest,
+                self.dinfo,
+                usize_to_count(index),
+                flags,
+                &mut media_info,
+            )
         };
 
-        if result {
+        if !cups_bool(result) {
             Err(Error::MediaSizeError(format!(
                 "Media at index {} not found",
                 index
@@ -171,13 +198,13 @@ impl DestinationInfo {
         dest: *mut bindings::cups_dest_s,
         flags: u32,
     ) -> Result<MediaSize> {
-        let mut media_info: bindings::cups_media_s = unsafe { std::mem::zeroed() };
+        let mut media_info = empty_media();
 
         let result = unsafe {
             bindings::cupsGetDestMediaDefault(http, dest, self.dinfo, flags, &mut media_info)
         };
 
-        if result {
+        if !cups_bool(result) {
             Err(Error::MediaSizeError("Default media not found".to_string()))
         } else {
             unsafe { MediaSize::from_cups_media(&media_info) }
@@ -191,7 +218,7 @@ impl DestinationInfo {
         dest: *mut bindings::cups_dest_s,
         flags: u32,
     ) -> usize {
-        unsafe { bindings::cupsGetDestMediaCount(http, dest, self.dinfo, flags) }
+        count_to_usize(unsafe { bindings::cupsGetDestMediaCount(http, dest, self.dinfo, flags) })
     }
 
     /// Get all available media
@@ -222,7 +249,7 @@ impl DestinationInfo {
         flags: u32,
         size: &MediaSize,
     ) -> Result<String> {
-        let mut cups_media: bindings::cups_media_s = unsafe { std::mem::zeroed() };
+        let mut cups_media = empty_media();
 
         cups_media.width = size.width;
         cups_media.length = size.length;
@@ -436,7 +463,7 @@ impl DestinationInfo {
 
             // If not an integer, try as boolean
             let bool_value = bindings::ippGetBoolean(default_attr, 0);
-            Ok(Some(if bool_value {
+            Ok(Some(if cups_bool(bool_value) {
                 "true".to_string()
             } else {
                 "false".to_string()
@@ -486,7 +513,7 @@ impl DestinationInfo {
 
                 // If not an integer, try as boolean
                 let bool_value = bindings::ippGetBoolean(supported_attr, i);
-                supported_values.push(if bool_value {
+                supported_values.push(if cups_bool(bool_value) {
                     "true".to_string()
                 } else {
                     "false".to_string()

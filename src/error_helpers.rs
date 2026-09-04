@@ -4,8 +4,17 @@ use std::ffi::CStr;
 
 pub fn get_cups_error_details() -> (i32, String) {
     unsafe {
+        #[cfg(cups3)]
         let error_code = bindings::cupsGetError();
+
+        #[cfg(cups2)]
+        let error_code = bindings::cupsLastError();
+
+        #[cfg(cups3)]
         let error_msg = bindings::cupsGetErrorString();
+
+        #[cfg(cups2)]
+        let error_msg = bindings::cupsLastErrorString();
 
         let message = if error_msg.is_null() {
             "Unknown CUPS error".to_string()
