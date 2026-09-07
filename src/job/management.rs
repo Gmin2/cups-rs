@@ -1,5 +1,6 @@
 use super::status::{JobInfo, JobStatus};
 use crate::bindings;
+use crate::compat::count_to_usize;
 use crate::constants::WHICHJOBS_ALL;
 use crate::error::{Error, Result};
 use std::ffi::CString;
@@ -64,9 +65,17 @@ fn get_jobs_with_filter(dest_name: Option<&str>, which_jobs: i32) -> Result<Vec<
     };
 
     let mut jobs_ptr: *mut bindings::cups_job_s = ptr::null_mut();
+
+    #[cfg(cups3)]
+    let num_jobs = unsafe {
+        bindings::cupsGetJobs(ptr::null_mut(), &mut jobs_ptr, dest_ptr, false, which_jobs)
+    };
+
+    #[cfg(cups2)]
     let num_jobs =
         unsafe { bindings::cupsGetJobs2(ptr::null_mut(), &mut jobs_ptr, dest_ptr, 0, which_jobs) };
 
+    #[cfg(cups2)]
     if num_jobs < 0 {
         return Ok(Vec::new());
     }
@@ -75,9 +84,9 @@ fn get_jobs_with_filter(dest_name: Option<&str>, which_jobs: i32) -> Result<Vec<
         return Ok(Vec::new());
     }
 
-    let mut job_infos = Vec::with_capacity(num_jobs as usize);
+    let mut job_infos = Vec::with_capacity(count_to_usize(num_jobs));
 
-    for i in 0..num_jobs {
+    for i in 0..count_to_usize(num_jobs) {
         unsafe {
             let job = &*(jobs_ptr.offset(i as isize));
 

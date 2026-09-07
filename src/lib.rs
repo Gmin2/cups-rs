@@ -109,6 +109,8 @@ pub mod auth;
 #[allow(missing_docs)]
 pub mod bindings;
 
+mod compat;
+
 /// CUPS server configuration management
 ///
 /// Configure CUPS server settings including:

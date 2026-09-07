@@ -34,16 +34,8 @@ impl Job {
         if status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
             Ok(())
         } else {
-            let error_msg = unsafe {
-                let error_ptr = bindings::cupsLastErrorString();
-                if error_ptr.is_null() {
-                    "Unknown CUPS error".to_string()
-                } else {
-                    std::ffi::CStr::from_ptr(error_ptr)
-                        .to_string_lossy()
-                        .into_owned()
-                }
-            };
+            let (error_code, _) = crate::error_helpers::get_cups_error_details();
+            let error_msg = format!("CUPS error {}", error_code);
             Err(Error::JobManagementFailed(format!(
                 "Failed to close job {}: {}",
                 self.id, error_msg
@@ -77,16 +69,8 @@ impl Job {
         if status == bindings::ipp_status_e_IPP_STATUS_OK as bindings::ipp_status_t {
             Ok(())
         } else {
-            let error_msg = unsafe {
-                let error_ptr = bindings::cupsLastErrorString();
-                if error_ptr.is_null() {
-                    "Unknown CUPS error".to_string()
-                } else {
-                    std::ffi::CStr::from_ptr(error_ptr)
-                        .to_string_lossy()
-                        .into_owned()
-                }
-            };
+            let (error_code, _) = crate::error_helpers::get_cups_error_details();
+            let error_msg = format!("CUPS error {}", error_code);
             Err(Error::JobManagementFailed(format!(
                 "Failed to cancel job {}: {}",
                 self.id, error_msg

@@ -255,11 +255,12 @@ struct ConnectContext<'a, T> {
 }
 
 // C-compatible callback function for connection monitoring
+#[cfg(cups3)]
 unsafe extern "C" fn connect_dest_callback<T>(
     user_data: *mut c_void,
     flags: u32,
     dest_ptr: *mut bindings::cups_dest_s,
-) -> c_int {
+) -> bool {
     // Reconstruct our context
     let context = unsafe { &mut *(user_data as *mut ConnectContext<T>) };
 
@@ -269,15 +270,38 @@ unsafe extern "C" fn connect_dest_callback<T>(
             Ok(dest) => {
                 // Call the user's callback
                 if (context.callback)(flags, &dest, context.user_data) {
-                    1 // Continue connection
+                    true // Continue connection
                 } else {
-                    0 // Cancel connection
+                    false // Cancel connection
                 }
             }
             Err(_) => {
                 // Error parsing destination, but continue anyway
-                1
+                true
             }
+        }
+    }
+}
+
+// C-compatible callback function for connection monitoring
+#[cfg(cups2)]
+unsafe extern "C" fn connect_dest_callback<T>(
+    user_data: *mut c_void,
+    flags: u32,
+    dest_ptr: *mut bindings::cups_dest_s,
+) -> c_int {
+    let context = unsafe { &mut *(user_data as *mut ConnectContext<T>) };
+
+    unsafe {
+        match Destination::from_raw(dest_ptr) {
+            Ok(dest) => {
+                if (context.callback)(flags, &dest, context.user_data) {
+                    1
+                } else {
+                    0
+                }
+            }
+            Err(_) => 1,
         }
     }
 }

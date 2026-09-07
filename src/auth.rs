@@ -87,8 +87,14 @@ pub fn set_password_callback(callback: Option<Box<PasswordCallback>>) -> Result<
     // Set the C callback function
     unsafe {
         if has_callback {
+            #[cfg(cups3)]
+            bindings::cupsSetPasswordCB(Some(password_callback_wrapper), ptr::null_mut());
+            #[cfg(cups2)]
             bindings::cupsSetPasswordCB2(Some(password_callback_wrapper), ptr::null_mut());
         } else {
+            #[cfg(cups3)]
+            bindings::cupsSetPasswordCB(None, ptr::null_mut());
+            #[cfg(cups2)]
             bindings::cupsSetPasswordCB2(None, ptr::null_mut());
         }
     }
@@ -266,7 +272,13 @@ pub fn do_authentication(
         )
     };
 
-    if result != 0 {
+    #[cfg(cups3)]
+    let success = result;
+
+    #[cfg(cups2)]
+    let success = result != 0;
+
+    if success {
         Ok(())
     } else {
         Err(Error::AuthenticationFailed(format!(
