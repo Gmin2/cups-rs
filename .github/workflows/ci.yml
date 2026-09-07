@@ -1,0 +1,180 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+  # CUPS 3 isn't available as a Debian/Ubuntu package yet,
+  # so we build this version from source in the CUPS 3 job.
+  LIBCUPS3_VERSION: v3.0.3
+
+
+jobs:
+  # Check formatting
+  fmt:
+    name: Format
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+
+  # Build and test against CUPS 2 and CUPS 3
+  build:
+    name: Build (${{ matrix.feature }})
+    runs-on: ubuntu-24.04
+
+    strategy:
+      # Run both jobs even if one of them fails.
+      fail-fast: false
+
+      matrix:
+        feature:
+          - force-cups2
+          - force-cups3
+
+    steps:
+      - uses: actions/checkout@v4
+
+
+      # Common dependencies
+      #
+      # clang/libclang are needed by bindgen.
+      # pkg-config is used by build.rs to find CUPS.
+      #
+      - name: Install common dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            pkg-config \
+            clang \
+            libclang-dev
+
+
+      # CUPS 2
+      #
+      # CUPS 2 is available directly from Ubuntu.
+      #
+      # The extra packages are needed because cups.pc refers to
+      # gnutls and avahi-client when pkg-config resolves the
+      # full CUPS dependency list.
+      #
+      - name: Install CUPS 2
+        if: matrix.feature == 'force-cups2'
+        run: |
+          sudo apt-get install -y \
+            libcups2-dev \
+            libgnutls28-dev \
+            libavahi-client-dev
+
+
+      # CUPS 3
+      #
+      # CUPS 3 isn't packaged by Ubuntu, so build it from source.
+      # Cache the installed copy so we don't rebuild it every run.
+      #
+      - name: Cache CUPS 3
+        if: matrix.feature == 'force-cups3'
+        id: cache-libcups3
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/libcups3
+          key: libcups3-${{ env.LIBCUPS3_VERSION }}-${{ runner.os }}
+
+
+      - name: Install CUPS 3 dependencies
+        if: matrix.feature == 'force-cups3' && steps.cache-libcups3.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y \
+            build-essential \
+            autoconf \
+            libavahi-client-dev \
+            libnss-mdns \
+            libpng-dev \
+            libssl-dev \
+            zlib1g-dev
+
+
+      - name: Build CUPS 3
+        if: matrix.feature == 'force-cups3' && steps.cache-libcups3.outputs.cache-hit != 'true'
+        run: |
+          git clone \
+            --depth 1 \
+            --recurse-submodules \
+            --shallow-submodules \
+            --branch "$LIBCUPS3_VERSION" \
+            https://github.com/OpenPrinting/libcups.git \
+            "$RUNNER_TEMP/libcups"
+
+          cd "$RUNNER_TEMP/libcups"
+
+          ./configure --prefix="$HOME/.local/libcups3"
+
+          make -j"$(nproc)"
+
+          # CUPS runs ldconfig as part of install, so this needs sudo.
+          sudo make install
+
+          # Give the runner user ownership of the cached files.
+          sudo chown -R "$(id -u):$(id -g)" "$HOME/.local/libcups3"
+
+
+      # CUPS 3 was installed in a custom location, so tell the
+      # build tools where to find it.
+      #
+      # PKG_CONFIG_PATH -> finds cups3.pc
+      # LD_LIBRARY_PATH -> finds libcups3 at runtime
+      # BINDGEN_EXTRA_CLANG_ARGS -> helps bindgen find the headers
+      #
+      - name: Configure CUPS 3 environment
+        if: matrix.feature == 'force-cups3'
+        run: |
+          echo "PKG_CONFIG_PATH=$HOME/.local/libcups3/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "LD_LIBRARY_PATH=$HOME/.local/libcups3/lib" >> "$GITHUB_ENV"
+          echo "BINDGEN_EXTRA_CLANG_ARGS=-I$HOME/.local/libcups3/include" >> "$GITHUB_ENV"
+
+
+      # Rust
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+
+      # Show which CUPS installation pkg-config found.
+      # Useful when debugging the CI.
+      #
+      - name: Check CUPS version
+        run: |
+          pkg-config --modversion cups3 || pkg-config --modversion cups
+
+
+      # Build
+      #
+      # The feature is intentional. CUPS 2 and CUPS 3 are
+      # mutually exclusive, so we explicitly select one for
+      # each matrix job.
+      #
+      - name: Build
+        run: |
+          cargo build --locked --features ${{ matrix.feature }}
+
+
+      # Tests
+      #
+      # Tests that need a CUPS daemon skip themselves when one
+      # isn't available. We don't start a daemon here because
+      # the destination-discovery tests expect no printers.
+      #
+      - name: Test
+        run: |
+          cargo test --locked --features ${{ matrix.feature }}
